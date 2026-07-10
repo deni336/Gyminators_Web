@@ -1,0 +1,15 @@
+{% extends "website/cms/base.html" %}
+
+{% block page_title %}Delete {{ config.singular }}{% endblock %}
+{% block page_eyebrow %}Confirm deletion{% endblock %}
+{% block page_heading %}Delete {{ object }}?{% endblock %}
+{% block page_intro %}<p>This action cannot be undone.</p>{% endblock %}
+{% block head_actions %}<a class="cmsButton secondary" href="{% url 'content_list' kind=kind %}">Cancel</a>{% endblock %}
+
+{% block cms_content %}
+  <section class="cmsDeleteCard" aria-labelledby="delete-heading">
+    <h2 id="delete-heading">Permanent deletion</h2>
+    <p>You are about to delete <b>{{ object }}</b>. If it should simply disappear from the public site, cancel and edit its publishing setting instead.</p>
+    <form method="post">{% csrf_token %}<button class="cmsButton danger" type="submit">Yes, delete {{ config.singular }}</button><a href="{% url 'content_list' kind=kind %}">Keep this item</a></form>
+  </section>
+{% endblock %}

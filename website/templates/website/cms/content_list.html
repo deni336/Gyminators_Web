@@ -1,0 +1,31 @@
+{% extends "website/cms/base.html" %}
+
+{% block page_title %}{{ config.title }}{% endblock %}
+{% block page_eyebrow %}Content collection{% endblock %}
+{% block page_heading %}{{ config.title }}{% endblock %}
+{% block page_intro %}<p>Use publishing and display-order controls to decide what appears on the public website.</p>{% endblock %}
+{% block head_actions %}
+  <a class="cmsButton secondary" href="{% url 'content_hub' %}">All content</a>
+  {% if can_add %}<a class="cmsButton" href="{% url 'content_add' kind=kind %}">Add {{ config.singular }}</a>{% endif %}
+{% endblock %}
+
+{% block cms_content %}
+  <div class="cmsTableWrap">
+    <table class="cmsTable">
+      <thead><tr>{% for label, attribute in config.columns %}<th scope="col">{{ label }}</th>{% endfor %}<th scope="col"><span class="srOnly">Actions</span></th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            {% for value in row.values %}<td>{{ value }}</td>{% endfor %}
+            <td class="cmsRowActions">
+              {% if can_change %}<a href="{% url 'content_edit' kind=kind pk=row.object.pk %}">Edit</a>{% endif %}
+              {% if can_delete %}<a class="dangerLink" href="{% url 'content_delete' kind=kind pk=row.object.pk %}">Delete</a>{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td class="cmsEmpty" colspan="{{ config.columns|length|add:'1' }}">No {{ config.title|lower }} have been added yet.{% if can_add %} Use &ldquo;Add {{ config.singular }}&rdquo; to create the first one.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

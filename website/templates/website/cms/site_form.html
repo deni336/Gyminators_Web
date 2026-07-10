@@ -1,0 +1,46 @@
+{% extends "website/cms/base.html" %}
+
+{% block page_title %}Homepage and site details{% endblock %}
+{% block page_eyebrow %}Site configuration{% endblock %}
+{% block page_heading %}Homepage and business details{% endblock %}
+{% block page_intro %}<p>Changes affect the public website. Review business claims, uploaded images, and all Jackrabbit destinations before publishing.</p>{% endblock %}
+{% block head_actions %}<a class="cmsButton secondary" href="{% url 'content_hub' %}">All content</a>{% endblock %}
+
+{% block cms_content %}
+  <form class="cmsForm" method="post" enctype="multipart/form-data" data-cms-form>
+    {% csrf_token %}
+    {% for hidden in form.hidden_fields %}{{ hidden }}{% endfor %}
+    {% if form.non_field_errors %}<div class="cmsFormErrors" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+
+    {% for title, fields in field_groups %}
+      <fieldset class="cmsFieldset">
+        <legend>{{ title }}</legend>
+        <div class="cmsFieldsGrid">
+          {% for field in fields %}
+            {% if field.field.widget.input_type == 'checkbox' %}
+              <div class="cmsField cmsCheckbox{% if field.errors %} hasError{% endif %}">
+                {{ field }}
+                <div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{% if field.help_text %}<p class="cmsHelp" id="{{ field.id_for_label }}-help">{{ field.help_text }}</p>{% endif %}</div>
+                {% if field.errors %}<div class="cmsFieldErrors" id="{{ field.id_for_label }}-errors">{{ field.errors }}</div>{% endif %}
+              </div>
+            {% else %}
+              <div class="cmsField{% if field.errors %} hasError{% endif %}{% if field.field.widget.input_type == 'file' %} cmsImageField{% endif %}">
+                <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
+                {{ field }}
+                {% if field.help_text %}<p class="cmsHelp" id="{{ field.id_for_label }}-help">{{ field.help_text }}</p>{% endif %}
+                {% if field.errors %}<div class="cmsFieldErrors" id="{{ field.id_for_label }}-errors">{{ field.errors }}</div>{% endif %}
+                {% if field.field.widget.input_type == 'file' %}<div class="cmsImagePreview" data-image-preview aria-live="polite"></div>{% endif %}
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endfor %}
+
+    <div class="cmsFormActions">
+      <button class="cmsButton" type="submit">Save changes</button>
+      <button class="cmsButton secondary" type="submit" name="save_view" value="1">Save and view website</button>
+      <a href="{% url 'content_hub' %}">Cancel</a>
+    </div>
+  </form>
+{% endblock %}

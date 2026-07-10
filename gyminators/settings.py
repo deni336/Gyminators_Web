@@ -1,0 +1,51 @@
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "development-only-insecure-key" if DEBUG else "")
+if not SECRET_KEY:
+    raise RuntimeError("DJANGO_SECRET_KEY must be set when DJANGO_DEBUG is false")
+DOMAIN = os.getenv("DOMAIN", "localhost")
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", f"{DOMAIN},localhost,127.0.0.1").split(",") if host.strip()]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", f"https://{DOMAIN}" if DOMAIN != "localhost" else "").split(",") if origin.strip()]
+
+INSTALLED_APPS = ["django.contrib.admin","django.contrib.auth","django.contrib.contenttypes","django.contrib.sessions","django.contrib.messages","django.contrib.staticfiles","axes","website"]
+MIDDLEWARE = ["django.middleware.security.SecurityMiddleware"]
+if not DEBUG:
+    MIDDLEWARE.append("whitenoise.middleware.WhiteNoiseMiddleware")
+MIDDLEWARE += ["django.contrib.sessions.middleware.SessionMiddleware","django.middleware.common.CommonMiddleware","django.middleware.csrf.CsrfViewMiddleware","django.contrib.auth.middleware.AuthenticationMiddleware","django.contrib.messages.middleware.MessageMiddleware","django.middleware.clickjacking.XFrameOptionsMiddleware","axes.middleware.AxesMiddleware"]
+AUTHENTICATION_BACKENDS = ["axes.backends.AxesStandaloneBackend", "django.contrib.auth.backends.ModelBackend"]
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = 1
+AXES_RESET_ON_SUCCESS = True
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+ROOT_URLCONF = "gyminators.urls"
+TEMPLATES = [{"BACKEND":"django.template.backends.django.DjangoTemplates","DIRS":[],"APP_DIRS":True,"OPTIONS":{"context_processors":["django.template.context_processors.request","django.contrib.auth.context_processors.auth","django.contrib.messages.context_processors.messages","website.context_processors.site_configuration"]}}]
+WSGI_APPLICATION = "gyminators.wsgi.application"
+
+if os.getenv("DB_HOST"):
+    DATABASES = {"default":{"ENGINE":"django.db.backends.postgresql","HOST":os.getenv("DB_HOST"),"PORT":os.getenv("DB_PORT","5432"),"NAME":os.getenv("DB_NAME","gyminators"),"USER":os.getenv("DB_USER","gyminators"),"PASSWORD":os.getenv("DB_PASSWORD","") ,"CONN_MAX_AGE":60,"CONN_HEALTH_CHECKS":True}}
+else:
+    (BASE_DIR/"data").mkdir(exist_ok=True)
+    DATABASES = {"default":{"ENGINE":"django.db.backends.sqlite3","NAME":BASE_DIR/"data"/"gyminators-django.db"}}
+
+AUTH_PASSWORD_VALIDATORS = [{"NAME":x} for x in ["django.contrib.auth.password_validation.UserAttributeSimilarityValidator","django.contrib.auth.password_validation.MinimumLengthValidator","django.contrib.auth.password_validation.CommonPasswordValidator","django.contrib.auth.password_validation.NumericPasswordValidator"]]
+LANGUAGE_CODE="en-us"; TIME_ZONE="America/New_York"; USE_I18N=True; USE_TZ=True
+STATIC_URL="/static/"; STATIC_ROOT=BASE_DIR/"staticfiles"
+MEDIA_URL="/media/"; MEDIA_ROOT=BASE_DIR/"media"
+static_backend = "django.contrib.staticfiles.storage.StaticFilesStorage" if DEBUG else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STORAGES={"staticfiles":{"BACKEND":static_backend},"default":{"BACKEND":"django.core.files.storage.FileSystemStorage"}}
+DEFAULT_AUTO_FIELD="django.db.models.BigAutoField"
+LOGIN_URL="/staff/login/"; LOGIN_REDIRECT_URL="/dashboard/"; LOGOUT_REDIRECT_URL="/"
+SESSION_COOKIE_AGE=28800; SESSION_EXPIRE_AT_BROWSER_CLOSE=True
+SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO","https")
+SESSION_COOKIE_SECURE=not DEBUG; CSRF_COOKIE_SECURE=not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF=True; X_FRAME_OPTIONS="DENY"
+SECURE_SSL_REDIRECT=not DEBUG
+SECURE_HSTS_SECONDS=31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS=not DEBUG
+SECURE_REFERRER_POLICY="strict-origin-when-cross-origin"
+# Caddy owns the production HSTS header. Browser preload enrollment is a
+# separate owner decision and is intentionally not enabled automatically.
+SILENCED_SYSTEM_CHECKS=["security.W021"]

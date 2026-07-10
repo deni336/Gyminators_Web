@@ -1,0 +1,66 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ site.meta_title }}</title>
+  <meta name="description" content="{{ site.meta_description }}">
+  <meta property="og:title" content="{{ site.meta_title }}">
+  <meta property="og:description" content="{{ site.meta_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% if site.hero_image %}{{ site.hero_image.url }}{% else %}{% static 'images/hero-gymnast.png' %}{% endif %}">
+  <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">
+  <link rel="icon" href="{% if site.favicon %}{{ site.favicon.url }}{% elif site.logo %}{{ site.logo.url }}{% else %}{% static 'images/logo.png' %}{% endif %}">
+  <link rel="stylesheet" href="{% static 'site.css' %}">
+  <script src="{% static 'site.js' %}" defer></script>
+</head>
+<body>
+<a class="skipLink" href="#main-content">Skip to main content</a>
+<div class="topbar"><span>✦ {{ site.announcement }}</span><span class="toplinks"><a href="{{ site.phone_link }}">☎ {{ site.phone }}</a><a href="{{ site.portal_url }}">Parent Portal →</a></span></div>
+<header>
+  <a href="{% url 'home' %}" class="brand">{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}</a>
+  <nav aria-label="Primary navigation">{% if site.show_programs %}<a href="#programs">Programs</a>{% endif %}{% if site.show_payments %}<a href="#memberships">Enroll & Pay</a>{% endif %}{% if site.show_why %}<a href="#why">Why Gyminators</a>{% endif %}{% if site.show_events %}<a href="#events">Camps & Events</a>{% endif %}<a href="#contact">Contact</a></nav>
+  {% if site.header_button_text %}<a class="button small" href="{{ site.registration_url }}">{{ site.header_button_text }} →</a>{% endif %}
+  <button class="menub" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-navigation">☰</button>
+</header>
+<div class="mobileNav" id="mobile-navigation">{% if site.show_programs %}<a href="#programs">Programs</a>{% endif %}{% if site.show_payments %}<a href="#memberships">Enroll & Pay</a>{% endif %}{% if site.show_why %}<a href="#why">Why Gyminators</a>{% endif %}{% if site.show_events %}<a href="#events">Camps & Events</a>{% endif %}<a href="#contact">Contact</a></div>
+
+{% if messages %}<div class="djangoMessages" role="status">{% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+
+<main id="main-content">
+  <section class="hero">
+    {% if site.hero_image %}<img class="heroimg" src="{{ site.hero_image.url }}" width="{{ site.hero_image.width }}" height="{{ site.hero_image.height }}" fetchpriority="high" alt="{{ site.hero_image_alt }}">{% else %}<img class="heroimg" src="{% static 'images/hero-gymnast.png' %}" width="1672" height="941" fetchpriority="high" alt="{{ site.hero_image_alt }}">{% endif %}
+    <div class="heroShade"></div>
+    <div class="heroContent"><div class="eyebrow">{{ site.hero_eyebrow }}</div><h1>{{ site.hero_heading }}<br><em>{{ site.hero_accent }}</em></h1><p>{{ site.hero_body }}</p><div class="heroActions">{% if site.hero_primary_button %}<a class="button" href="{{ site.registration_url }}">{{ site.hero_primary_button }} →</a>{% endif %}{% if site.hero_secondary_button and site.show_programs %}<a class="textlink" href="#programs">{{ site.hero_secondary_button }} ↓</a>{% endif %}</div></div>
+    <div class="heroProof">{% for point in proof_points %}<span><b>{{ point.title }}</b>{{ point.body }}</span>{% endfor %}</div>
+  </section>
+
+  <section class="intro" id="about"><div><div class="eyebrow purple">{{ site.intro_eyebrow }}</div><h2>{{ site.intro_heading }} <i>{{ site.intro_accent }}</i></h2></div><div><p class="lead">{{ site.intro_lead }}</p><p>{{ site.intro_body }}</p>{% if site.show_why %}<a class="arrowlink" href="#why">Why families choose us →</a>{% endif %}</div></section>
+
+  {% if site.show_payments %}<section class="memberships" id="memberships">
+    <div class="sectionHead"><div><div class="eyebrow purple">{{ site.payment_eyebrow }}</div><h2>{{ site.payment_heading }}</h2></div><div class="payIntro"><p>{{ site.payment_body }}</p></div></div>
+    <div class="jackrabbitGrid">
+      <article><small>Start here</small><h3>{{ site.payment_new_heading }}</h3><p>{{ site.payment_new_body }}</p><a class="button" href="{{ site.registration_url }}" target="_blank" rel="noopener noreferrer">{{ site.payment_new_button }} →</a></article>
+      <article><small>Family account</small><h3>{{ site.payment_existing_heading }}</h3><p>{{ site.payment_existing_body }}</p><a class="button" href="{{ site.portal_url }}" target="_blank" rel="noopener noreferrer">{{ site.payment_existing_button }} →</a></article>
+      <article><small>Live availability</small><h3>Class schedule</h3><p>See current classes, meeting times, tuition, and openings directly from Gyminators&rsquo; Jackrabbit system.</p><a class="button secondaryButton" href="{{ site.class_schedule_url }}" target="_blank" rel="noopener noreferrer">View live classes →</a></article>
+    </div>
+    <div class="jackrabbitBenefits"><ul>{% if site.payment_benefit_one %}<li>✓ {{ site.payment_benefit_one }}</li>{% endif %}{% if site.payment_benefit_two %}<li>✓ {{ site.payment_benefit_two }}</li>{% endif %}{% if site.payment_benefit_three %}<li>✓ {{ site.payment_benefit_three }}</li>{% endif %}</ul>{% if site.payment_portal_note %}<p>{{ site.payment_portal_note }}</p>{% endif %}</div>
+  </section>{% endif %}
+
+  {% if site.show_programs %}<section class="programSection" id="programs">
+    <div class="sectionHead"><div><div class="eyebrow purple">{{ site.programs_eyebrow }}</div><h2>{{ site.programs_heading }}</h2></div><p>{{ site.programs_body }}</p></div>
+    <div class="programGrid">{% for program in featured_programs %}<article class="program"><div class="photo">{% if program.image %}<img src="{{ program.image.url }}" width="{{ program.image.width }}" height="{{ program.image.height }}" loading="lazy" alt="{{ program.image_alt }}">{% elif program.fallback_image %}<img src="{% static program.fallback_image %}" width="970" height="250" loading="lazy" alt="{{ program.image_alt }}">{% endif %}<span>{{ forloop.counter|stringformat:"02d" }}</span></div><div class="programInfo"><small>{{ program.age_range }}</small><h3>{{ program.name }}</h3><p>{{ program.description }}</p><a href="{{ program.call_to_action_url|default:site.registration_url }}" aria-label="{{ program.call_to_action_label }}: {{ program.name }}">→</a></div></article>{% empty %}<p>No featured programs are published yet.</p>{% endfor %}</div>
+    {% if specialty_programs %}<div class="specialties"><b>Also available:</b> {% for program in specialty_programs %}{{ program.name }}{% if not forloop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+  </section>{% endif %}
+
+  {% if site.show_why %}<section class="why" id="why"><div class="whyImage">{% if site.why_image %}<img src="{{ site.why_image.url }}" width="{{ site.why_image.width }}" height="{{ site.why_image.height }}" loading="lazy" alt="{{ site.why_image_alt }}">{% else %}<img src="{% static 'images/9.jpg' %}" width="970" height="250" loading="lazy" alt="{{ site.why_image_alt }}">{% endif %}<div class="sticker">★<b>Fun lives<br>here.</b></div></div><div class="whyContent"><div class="eyebrow light">{{ site.why_eyebrow }}</div><h2>{{ site.why_heading }}</h2><p>{{ site.why_body }}</p><div class="benefits">{% for benefit in benefits %}<div><span><b>{{ benefit.title }}</b><small>{{ benefit.body }}</small></span></div>{% endfor %}</div></div></section>{% endif %}
+
+  {% if site.show_events %}<section class="events" id="events"><div class="eventCopy"><div class="eyebrow purple">{{ site.events_eyebrow }}</div><h2>{{ site.events_heading }}</h2><p>{{ site.events_body }}</p></div><div class="eventList">{% for event in events %}<a href="{{ event.external_url|default:'#contact' }}"><span>{{ forloop.counter|stringformat:"02d" }}</span><div class="eventBody">{% if event.image %}<img class="eventThumb" src="{{ event.image.url }}" width="{{ event.image.width }}" height="{{ event.image.height }}" loading="lazy" alt="{{ event.image_alt }}">{% endif %}<div><h3>{{ event.title }}</h3><p>{{ event.description }}</p>{% if event.schedule_text or event.price_text or event.starts_at %}<div class="eventMeta">{% if event.schedule_text %}<small>{{ event.schedule_text }}</small>{% elif event.starts_at %}<small>{{ event.starts_at|date:"M j, Y g:i A" }}</small>{% endif %}{% if event.price_text %}<small>{{ event.price_text }}</small>{% endif %}</div>{% endif %}<b class="eventCta">{{ event.call_to_action_label }} →</b></div></div><span class="eventArrow" aria-hidden="true">→</span></a>{% empty %}<p>Call the office for current camps and events.</p>{% endfor %}</div></section>{% endif %}
+
+  {% if site.show_trial %}<section class="trial"><div class="eyebrow light">{{ site.trial_eyebrow }}</div><h2>{{ site.trial_heading }}</h2><p>{{ site.trial_body }}</p><a class="whiteBtn" href="{{ site.registration_url }}">{{ site.trial_button_text }} →</a></section>{% endif %}
+</main>
+
+<footer id="contact"><div class="footerTop"><div>{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}<p>{{ site.footer_body }}</p><div class="socialLinks">{% for link in social_links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}</div></div><div><p class="footerHeading">Visit us</p><p><a href="{{ site.map_url }}">{{ site.street_address }}<br>{{ site.city_state_zip }}</a></p><p>{{ site.hours_note }}</p></div><div><p class="footerHeading">Let’s talk</p><a href="{{ site.phone_link }}" class="bigPhone">{{ site.phone }}</a><a href="mailto:{{ site.email }}" class="footerLink">{{ site.email }}</a><a href="{{ site.portal_url }}" class="footerLink">Parent Portal →</a>{% if site.privacy_url %}<a href="{{ site.privacy_url }}" class="footerLink">Privacy policy →</a>{% endif %}{% if site.terms_url %}<a href="{{ site.terms_url }}" class="footerLink">Terms →</a>{% endif %}{% if site.cancellation_url %}<a href="{{ site.cancellation_url }}" class="footerLink">Cancellation & refunds →</a>{% endif %}{% if site.accessibility_url %}<a href="{{ site.accessibility_url }}" class="footerLink">Accessibility →</a>{% endif %}<a href="{% url 'login' %}" class="footerLink">Staff login →</a></div></div><div class="footerBottom"><span>© {% now "Y" %} {{ site.gym_name }}</span>{% if site.footer_credentials %}<span>{{ site.footer_credentials }}</span>{% endif %}</div></footer>
+</body>
+</html>

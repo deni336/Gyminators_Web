@@ -1,0 +1,28 @@
+{% extends "website/cms/base.html" %}
+
+{% block page_title %}Content manager{% endblock %}
+{% block page_eyebrow %}Website content{% endblock %}
+{% block page_heading %}Keep the website current{% endblock %}
+{% block page_intro %}<p>Update public information, programs, events, highlights, social links, and the website&rsquo;s Jackrabbit links from one place.</p>{% endblock %}
+{% block head_actions %}<a class="cmsButton secondary" href="{% url 'home' %}">View live website</a>{% endblock %}
+
+{% block cms_content %}
+  <section class="cmsCards" aria-label="Content areas">
+    {% if perms.website.change_siteconfiguration %}
+      <a class="cmsCard featured" href="{% url 'site_configuration_edit' %}">
+        <span class="cmsCardIcon" aria-hidden="true">Aa</span>
+        <div><h2>Homepage and business details</h2><p>Edit contact information, Jackrabbit links, branding, section copy, images, and homepage visibility.</p></div>
+        <b aria-hidden="true">→</b>
+      </a>
+    {% endif %}
+    {% for card in cards %}
+      <a class="cmsCard" href="{% url 'content_list' kind=card.kind %}">
+        <span class="cmsCardIcon" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
+        <div><h2>{{ card.title }}</h2><p>{{ card.count }} item{{ card.count|pluralize }} currently recorded.</p></div>
+        <b aria-hidden="true">→</b>
+      </a>
+    {% empty %}
+      {% if not perms.website.change_siteconfiguration %}<p class="cmsEmpty">Your account does not currently have access to a content area.</p>{% endif %}
+    {% endfor %}
+  </section>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{% block page_title %}Website manager{% endblock %} | {{ site.gym_name }}</title>
+  <link rel="icon" href="{% if site.favicon %}{{ site.favicon.url }}{% elif site.logo %}{{ site.logo.url }}{% else %}{% static 'images/logo.png' %}{% endif %}">
+  <link rel="stylesheet" href="{% static 'site.css' %}">
+  <script src="{% static 'cms.js' %}" defer></script>
+</head>
+<body class="cmsPage">
+  <a class="skipLink" href="#cms-main">Skip to main content</a>
+  <header class="cmsHeader">
+    <a class="cmsBrand" href="{% url 'dashboard' %}" aria-label="Gyminators manager dashboard">
+      {% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="">{% endif %}
+      <span>Website manager</span>
+    </a>
+    <nav class="cmsNav" aria-label="Manager navigation">
+      <a href="{% url 'dashboard' %}">Dashboard</a>
+      <a href="{% url 'content_hub' %}">Content</a>
+      {% if perms.website.change_siteconfiguration %}<a href="{% url 'site_configuration_edit' %}">Site details</a>{% endif %}
+      <a href="{% url 'home' %}">View website</a>
+      <a href="{{ site.jackrabbit_owner_url }}" target="_blank" rel="noopener noreferrer">Open Jackrabbit</a>
+      {% if request.user.is_staff %}<a href="{% url 'admin:index' %}">Django admin</a>{% endif %}
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
+    </nav>
+  </header>
+
+  {% if messages %}
+    <div class="cmsMessages" aria-live="polite">
+      {% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}
+    </div>
+  {% endif %}
+
+  <main class="cmsMain" id="cms-main">
+    <div class="cmsPageHead">
+      <div>
+        <small>{% block page_eyebrow %}Website manager{% endblock %}</small>
+        <h1>{% block page_heading %}Manage website content{% endblock %}</h1>
+        {% block page_intro %}{% endblock %}
+      </div>
+      <div class="cmsHeadActions">{% block head_actions %}{% endblock %}</div>
+    </div>
+    {% block cms_content %}{% endblock %}
+  </main>
+</body>
+</html>

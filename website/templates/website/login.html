@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Staff Login | {{ site.gym_name }}</title>
+  <link rel="icon" href="{% if site.favicon %}{{ site.favicon.url }}{% elif site.logo %}{{ site.logo.url }}{% else %}{% static 'images/logo.png' %}{% endif %}">
+  <link rel="stylesheet" href="{% static 'site.css' %}">
+</head>
+<body>
+<main class="adminLogin">
+  <form method="post">
+    {% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    {% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}
+    <div class="eyebrow purple">Website management</div>
+    <h1>Website admin login</h1>
+    <p>Use this login to edit the Gyminators website. Customer accounts, payments, and reporting use a separate Jackrabbit login.</p>
+    {% if form.errors %}<p class="error" role="alert">The username or password was not accepted.</p>{% endif %}
+    <label for="id_username">Username</label>
+    <input id="id_username" name="username" autocomplete="username" required autofocus>
+    <label for="id_password">Password</label>
+    <input id="id_password" type="password" name="password" autocomplete="current-password" required>
+    <button class="button" type="submit">Open website dashboard →</button>
+    <a href="{% url 'home' %}">← Return to website</a>
+    <a class="jackrabbitLoginLink" href="{{ site.jackrabbit_owner_url }}" target="_blank" rel="noopener noreferrer">Jackrabbit owner/manager login →</a>
+  </form>
+</main>
+</body>
+</html>
