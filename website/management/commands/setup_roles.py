@@ -27,6 +27,10 @@ CONTENT_PERMISSIONS = {
 
 BUSINESS_PERMISSIONS = CONTENT_PERMISSIONS
 
+REPORTING_PERMISSIONS = {
+    "view_reporting_dashboard",
+}
+
 
 def resolve_website_permissions(codenames):
     permissions = {
@@ -46,10 +50,28 @@ def resolve_website_permissions(codenames):
     return list(permissions.values())
 
 
+def resolve_reporting_permissions(codenames):
+    permissions = {
+        permission.codename: permission
+        for permission in Permission.objects.filter(
+            content_type__app_label="jackrabbit_reporting",
+            codename__in=codenames,
+        )
+    }
+    missing = sorted(set(codenames) - permissions.keys())
+    if missing:
+        raise CommandError(
+            "Missing Jackrabbit reporting permissions: "
+            + ", ".join(missing)
+            + ". Run `python manage.py migrate` before setup_roles."
+        )
+    return list(permissions.values())
+
+
 class Command(BaseCommand):
     help = (
-        "Create or reset the Website Managers and Business Managers groups "
-        "to website-content permissions. Billing and reporting stay in Jackrabbit."
+        "Create or reset the Website Managers, Business Managers, and Reporting "
+        "Managers groups. Financial reporting stays in Jackrabbit."
     )
 
     @transaction.atomic
@@ -85,7 +107,16 @@ class Command(BaseCommand):
                 )
             )
 
+        reporting_group, created = Group.objects.get_or_create(name="Reporting Managers")
+        reporting_group.permissions.set(resolve_reporting_permissions(REPORTING_PERMISSIONS))
+        state = "Created" if created else "Updated"
         self.stdout.write(
-            "Assign staff accounts to one group in Django admin. "
+            self.style.SUCCESS(
+                f"{state} Reporting Managers with {len(REPORTING_PERMISSIONS)} permissions."
+            )
+        )
+
+        self.stdout.write(
+            "Assign staff accounts to the appropriate groups in Django admin. "
             "The command does not change users or grant superuser access."
         )

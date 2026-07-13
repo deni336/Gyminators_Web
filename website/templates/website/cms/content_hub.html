@@ -18,7 +18,7 @@
     {% for card in cards %}
       <a class="cmsCard" href="{% url 'content_list' kind=card.kind %}">
         <span class="cmsCardIcon" aria-hidden="true">{{ forloop.counter|stringformat:"02d" }}</span>
-        <div><h2>{{ card.title }}</h2><p>{{ card.count }} item{{ card.count|pluralize }} currently recorded.</p></div>
+        <div><h2>{{ card.title }}</h2><p>{{ card.description }} {{ card.count }} item{{ card.count|pluralize }} currently recorded.</p></div>
         <b aria-hidden="true">→</b>
       </a>
     {% empty %}

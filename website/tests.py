@@ -103,10 +103,11 @@ class CMSBaseTests(TestCase):
         return data
 
     @staticmethod
-    def image_upload(name="gymnast.png"):
+    def image_upload(name="gymnast.png", image_format="PNG"):
         buffer = BytesIO()
-        Image.new("RGB", (32, 24), color=(116, 52, 230)).save(buffer, format="PNG")
-        return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+        Image.new("RGB", (32, 24), color=(116, 52, 230)).save(buffer, format=image_format)
+        content_types = {"BMP": "image/bmp", "JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
+        return SimpleUploadedFile(name, buffer.getvalue(), content_type=content_types[image_format])
 
 
 class CMSPermissionTests(CMSBaseTests):
@@ -126,7 +127,9 @@ class CMSPermissionTests(CMSBaseTests):
         user = self.create_staff_user()
         self.grant(user, "change_program")
         self.client.force_login(user)
-        self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
+        dashboard = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertContains(dashboard, "Django admin")
         self.assertEqual(self.client.get(reverse("content_hub")).status_code, 200)
         self.assertEqual(self.client.get(reverse("content_list", args=["programs"])).status_code, 200)
         self.assertEqual(self.client.get(reverse("site_configuration_edit")).status_code, 403)
@@ -161,6 +164,26 @@ class CMSContentTests(CMSBaseTests):
         self.assertContains(homepage, "Manager controlled headline")
         self.assertContains(homepage, "orgId=999999")
         self.assertContains(homepage, "OrgID=999999")
+
+    def test_manager_can_upload_a_homepage_picture_with_content_changes(self):
+        self.grant(self.user, "change_siteconfiguration")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            site = SiteConfiguration.get_solo()
+            payload = self.site_payload(
+                site,
+                hero_heading="Homepage picture changed",
+                hero_image_alt="A gymnast celebrating after practice",
+            )
+            payload["hero_image"] = self.image_upload("new-hero.jpg", "JPEG")
+            response = self.client.post(reverse("site_configuration_edit"), payload)
+            self.assertRedirects(response, reverse("site_configuration_edit"))
+
+            site.refresh_from_db()
+            self.assertTrue(site.hero_image.storage.exists(site.hero_image.name))
+            homepage = self.client.get(reverse("home"))
+            self.assertContains(homepage, "Homepage picture changed")
+            self.assertContains(homepage, site.hero_image.url)
+            self.assertContains(homepage, "A gymnast celebrating after practice")
 
     def test_program_crud_publication_and_order_are_reflected_publicly(self):
         self.grant(self.user, "add_program", "change_program", "delete_program")
@@ -218,6 +241,80 @@ class CMSContentTests(CMSBaseTests):
             invalid_response = self.client.post(reverse("content_add", args=["programs"]), invalid_payload)
             self.assertEqual(invalid_response.status_code, 200)
             self.assertIn("image", invalid_response.context["form"].errors)
+
+    def test_dashboard_shows_current_image_preview_and_supported_file_types(self):
+        self.grant(self.user, "add_program", "change_program", "view_program")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            payload = self.program_payload(name="Previewed program")
+            payload["image"] = self.image_upload()
+            self.client.post(reverse("content_add", args=["programs"]), payload)
+            program = Program.objects.get(name="Previewed program")
+
+            edit_response = self.client.get(reverse("content_edit", args=["programs", program.pk]))
+            self.assertContains(edit_response, "Current picture")
+            self.assertContains(edit_response, "Open full size")
+            self.assertContains(edit_response, "Remove current picture when I save")
+            self.assertContains(edit_response, 'accept="image/jpeg,image/png,image/webp"')
+            self.assertContains(edit_response, program.image.url)
+
+            list_response = self.client.get(reverse("content_list", args=["programs"]))
+            self.assertContains(list_response, "Uploaded")
+            self.assertContains(list_response, program.image.url)
+
+    def test_manager_can_replace_and_remove_an_uploaded_picture(self):
+        self.grant(self.user, "add_program", "change_program")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            add_payload = self.program_payload(name="Picture workflow")
+            add_payload["image"] = self.image_upload("first.png")
+            self.client.post(reverse("content_add", args=["programs"]), add_payload)
+            program = Program.objects.get(name="Picture workflow")
+            storage = program.image.storage
+            first_name = program.image.name
+            self.assertTrue(storage.exists(first_name))
+
+            replace_payload = self.program_payload(name=program.name, slug=program.slug)
+            replace_payload["image"] = self.image_upload("replacement.webp", "WEBP")
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(reverse("content_edit", args=["programs", program.pk]), replace_payload)
+            self.assertRedirects(response, reverse("content_list", args=["programs"]), fetch_redirect_response=False)
+            program.refresh_from_db()
+            replacement_name = program.image.name
+            self.assertTrue(storage.exists(replacement_name))
+            self.assertFalse(storage.exists(first_name))
+
+            clear_payload = self.program_payload(name=program.name, slug=program.slug)
+            clear_payload["image-clear"] = "on"
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(reverse("content_edit", args=["programs", program.pk]), clear_payload)
+            self.assertRedirects(response, reverse("content_list", args=["programs"]), fetch_redirect_response=False)
+            program.refresh_from_db()
+            self.assertFalse(program.image)
+            self.assertFalse(storage.exists(replacement_name))
+
+    def test_picture_content_must_match_an_allowed_format(self):
+        self.grant(self.user, "add_program")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            payload = self.program_payload(name="Disguised picture")
+            payload["image"] = self.image_upload("disguised.jpg", "BMP")
+            response = self.client.post(reverse("content_add", args=["programs"]), payload)
+            self.assertEqual(response.status_code, 200)
+            self.assertIn("image", response.context["form"].errors)
+            self.assertFalse(Program.objects.filter(name="Disguised picture").exists())
+
+    def test_deleting_content_removes_its_unreferenced_picture(self):
+        self.grant(self.user, "add_program", "delete_program")
+        with tempfile.TemporaryDirectory() as media_root, self.settings(MEDIA_ROOT=media_root):
+            payload = self.program_payload(name="Deleted picture")
+            payload["image"] = self.image_upload("delete-me.png")
+            self.client.post(reverse("content_add", args=["programs"]), payload)
+            program = Program.objects.get(name="Deleted picture")
+            storage = program.image.storage
+            image_name = program.image.name
+
+            with self.captureOnCommitCallbacks(execute=True):
+                response = self.client.post(reverse("content_delete", args=["programs", program.pk]))
+            self.assertRedirects(response, reverse("content_list", args=["programs"]), fetch_redirect_response=False)
+            self.assertFalse(storage.exists(image_name))
 
 
 class JackrabbitWorkflowTests(CMSBaseTests):

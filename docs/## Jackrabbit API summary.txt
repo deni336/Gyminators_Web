@@ -1,0 +1,239 @@
+## Jackrabbit API summary
+
+As of July 13, 2026, Jackrabbit does not publish a general-purpose REST or GraphQL API for directly synchronizing its entire database with a Python application.
+
+There are two usable data surfaces:
+
+| Surface | What it provides | Main limitation |
+|---|---|---|
+| Jackrabbit Zapier integration | Families, contacts, students, enrollments, waitlists, leads, absences, makeups, classes, and limited staffing events | Fixed operations, polling-based, no financial ledger |
+| Public class JSON feed | Website-visible classes, schedule, openings, tuition, instructors, and registration links | Public-class data only; no customers or payments |
+| Reports/Excel exports | Financial, customer, enrollment, attendance, and other report data | Manual, not an API |
+| Built-in dashboards | Operational KPIs, accounts receivable, and revenue | Remains inside Jackrabbit |
+
+The most important conclusion is that we can build a useful customer and enrollment dashboard, but the currently published API surfaces are not sufficient for an accurate income, payment, refund, or accounts-receivable dashboard.
+
+## 1. Authenticated access through Zapier
+
+Jackrabbit’s documented API key is specifically used to connect a Jackrabbit account to Zapier. It requires the `Zapier API` permission and is created under `Settings > General > Zapier`. Jackrabbit does not publish the underlying endpoint URLs, API scopes, response schemas, pagination rules, or rate limits for direct Python use. Therefore, we should not put this key into a custom Django API client unless Jackrabbit gives us separate written documentation and permission. [Jackrabbit’s Zapier setup guide](https://help.jackrabbitclass.com/help/automate-workflows-with-zapier), [General Settings documentation](https://help.jackrabbitclass.com/help/add-database-settings).
+
+### Available outbound triggers
+
+The current Jackrabbit Zapier application publishes 20 triggers:
+
+| Area | Triggers |
+|---|---|
+| Families and contacts | Family Created, Family Updated, Lead Created, Contact Created, Contact Updated |
+| Students | Student Created, Student Updated, Student Inactive |
+| Enrollment | Student Enrolled, Student Dropped, Enrollment Type Change |
+| Waitlists | Student Added to Waitlist, Student Dropped From Waitlist |
+| Events | Student Enrolled in Event |
+| Classes | Class Created, Class Updated |
+| Attendance-related | Absence Created, Makeup Created |
+| Staffing | Staff Created, Substitution Created |
+
+Several update triggers are limited to particular fields:
+
+- Contact Updated watches name, email, home/work/cell phone, mass-email opt-out, and address fields.
+- Student Updated watches name, family ID, and date of birth.
+- Family Updated watches name, phone, source, referral, location, and address.
+- Class Updated is based on class name and Category 1.
+
+These are polling triggers, not documented real-time webhooks. Zapier currently states that its free plan checks for new data every 15 minutes. Timing on other plans depends on Zapier. [Current Jackrabbit Zapier operation catalog](https://zapier.com/apps/jackrabbit-class/integrations).
+
+### Available searches
+
+The connector publishes nine searches:
+
+1. Contacts by created-date range.
+2. Enrollments by created-date range, optionally filtered by location.
+3. Enrollments by drop-date range, optionally filtered by location.
+4. Enrollments by enrollment-date range, optionally filtered by location.
+5. Students by birth-date range.
+6. Students by created-date range.
+7. Students by date-last-inactive range.
+8. Classes by start-date range and optional class status.
+9. A family by required last name, with optional address, ZIP code, email, and location.
+
+These searches could help with historical backfill, but they are not equivalent to unrestricted “list all” endpoints. In particular, there is no general family enumeration search; family lookup requires a last name.
+
+Jackrabbit does not publish result limits, ordering, pagination, maximum date range, retention period, or complete output field definitions. We would need to connect the owner’s account and capture test payloads before finalizing our Django models.
+
+### Available write actions
+
+Zapier can write only three basic record types:
+
+- Create Family: family name and phone are required; address fields are optional.
+- Create Contact: name, email, family ID, and billing-contact status are required; phone fields are optional.
+- Create Student: name, birthdate, and family ID are required.
+
+There are no published actions to:
+
+- Enroll or drop a student.
+- Create or update a class.
+- Post tuition or another fee.
+- Process a payment.
+- Issue a credit or refund.
+- Change account balances.
+- Create memberships or subscriptions.
+
+If Parent Portal is enabled, creating a contact can automatically register that contact and send a password-reset email.
+
+### Contact behavior
+
+On supported triggers and searches, `IncludeAllContacts` controls family contacts:
+
+- Default: only the primary/billing contact.
+- Enabled: all family contacts are returned as Zapier line items.
+
+That means fields such as email and phone may contain multiple line-item values and must be normalized carefully.
+
+## 2. Public class JSON feed
+
+Jackrabbit documents one public JSON endpoint for website class availability:
+
+```text
+POST https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJson
+```
+
+It accepts JSON and requires a valid organization ID but no API token. Jackrabbit’s current website documentation links to the feed specification while noting that custom JSON development is not supported by Jackrabbit’s support team. [Online class listing documentation](https://help.jackrabbitclass.com/help/online-class-listings), [official JSON feed specification](https://dyzz9obi78pm5.cloudfront.net/app/image/id/649c687fd0859327c164004c/n/openings-json.pdf), [custom website examples](https://help.jackrabbitclass.com/help/client-website-examples).
+
+### Class data returned
+
+The documented response includes:
+
+- Class name and description.
+- Categories 1, 2, and 3.
+- Gender and minimum/maximum age.
+- Instructors.
+- Location code and name.
+- Room and session.
+- Start and end dates.
+- Start and end times.
+- Meeting-day flags for Monday through Sunday.
+- Registration start date.
+- Normal or per-day enrollment type.
+- Calculated openings.
+- Per-day openings for per-day classes.
+- Tuition fee.
+- Per-day tuition amounts.
+- Online registration or waitlist link.
+- Request success and status message.
+
+A live read-only check against Gyminators’ public organization ID also returned several fields not listed in the older PDF specification:
+
+- Numeric class ID.
+- Waitlist status.
+- Location address and telephone fields.
+- Billing cycle.
+
+Because those fields are undocumented, our code should treat them as optional.
+
+### Available filters
+
+The feed can be filtered by:
+
+- Categories 1, 2, and 3.
+- Instructor ID.
+- Class meeting days.
+- Session.
+- Location code.
+- Gender.
+- Room.
+- Status.
+- Exact-versus-contains matching.
+- Whether closed/full classes should be included.
+- Custom sort order.
+
+The specification does not document request-rate limits or versioning. It also has limited browser CORS behavior, so a server-side Django client with caching is safer than calling it directly from JavaScript.
+
+### What the class feed does not contain
+
+It does not expose:
+
+- Families, contacts, or students.
+- Class rosters.
+- Class capacity or enrolled count.
+- Attendance.
+- Transactions or payments.
+- Family balances.
+- Refunds, credits, or deposits.
+- Revenue.
+- Events.
+- Staff records or payroll.
+- Images.
+
+The `tuition.fee` value is an advertised class price. It must not be treated as collected or recognized income. Since capacity is absent, openings alone also cannot produce a reliable class fill percentage.
+
+## 3. Financial data limitation
+
+The current published API/Zapier catalog has no operation for:
+
+- Fees or charges.
+- Payments.
+- Credits or refunds.
+- Declines and chargebacks.
+- Payment methods.
+- Deposits or processor settlements.
+- Transaction history.
+- Accounts receivable.
+- Revenue or recognized income.
+- Membership or recurring-billing records.
+
+Jackrabbit previously announced that a family balance could be included in some outbound Zaps. Even if that field appears in a live trigger payload, it is only a point-in-time balance—not a payment ledger or revenue source. [Jackrabbit enhancement history](https://app.jackrabbitclass.com/RecentEnhancements.asp?count=100&htmlOnly=true).
+
+For financial reporting, the supported alternatives are:
+
+- Jackrabbit’s Executive Dashboard, which includes active-record KPIs, enrollment/drop metrics, aged accounts, and revenue comparisons. [Executive Dashboard overview](https://help.jackrabbitclass.com/help/executive-dashboard-overview).
+- The Power BI-based Business Intelligence Dashboard, available with the appropriate subscription or upgrade. [Business Intelligence Dashboard](https://help.jackrabbitclass.com/help/streamline-data-business-intelligence-dashboard).
+- Transaction and financial report exports. Transaction Search can export fees, payments, credits, refunds, ePayments, and declined-payment information to Excel. [Search Transactions](https://help.jackrabbitclass.com/help/search-transactions).
+
+## 4. What our dashboard could report
+
+| Metric | Feasibility | Requirement/caveat |
+|---|---|---|
+| New family/customer accounts | Good | Family Created trigger; historical baseline still needed |
+| New contacts and students | Good | Triggers and created-date searches |
+| Leads | Good going forward | Lead Created trigger |
+| Enrollments and drops | Good | Triggers plus date-range searches |
+| Net enrollment growth | Good | Enrollment minus drop events |
+| Waitlist demand | Good going forward | Add/drop waitlist triggers |
+| Inactive students/churn signals | Good | Student Inactive and drop events |
+| Absences and makeups | Partial | Event counts only, not complete attendance rate |
+| Class schedule and openings | Good | Public class feed |
+| Class tuition price list | Good | Class feed; price is not revenue |
+| Class fill percentage | Not yet | Capacity/enrolled count is not in the feed |
+| Active family count | Partial | Requires an initial export and reconciliation |
+| Event enrollment activity | Partial | Trigger only; no full Event API |
+| Revenue and collected income | Not available through published API | Use Jackrabbit dashboard or financial exports |
+| Accounts receivable | Not reliably available | Use Jackrabbit reports/exports |
+| Payment success, refunds, declines | Not available through published API | Use transaction exports |
+
+In Jackrabbit terminology, we should report these separately:
+
+- Family: customer/account.
+- Contact: parent, guardian, or billing contact.
+- Student: activity participant.
+
+Combining all three into one “customer count” would inflate the result.
+
+## 5. Other integrations that are not a general API
+
+Jackrabbit offers a one-way HighLevel-based CRM contact synchronization. It sends contacts and tags such as family status, contact type, location, pickup authorization, and problem-account status. It does not expose class, enrollment, payment, or financial data to our Django application. [CRM integration documentation](https://help.jackrabbitclass.com/help/integrate-crm-customer-relationship-management).
+
+Jackrabbit also explicitly says it does not provide an Events API or web service. A public event calendar can be linked from the website, while Zapier can report a new event enrollment. [Event calendar/API documentation](https://help.jackrabbitclass.com/help/link-to-online-event).
+
+## Recommended implementation for Gyminators
+
+I recommend this division:
+
+1. Use the JSON class feed for the modern public class schedule, availability, tuition display, and Jackrabbit registration links.
+2. Use Zapier to send operational events into authenticated Django ingestion endpoints.
+3. Use the date-range searches and an initial authorized Excel export to establish a baseline.
+4. Store daily snapshots for customer, enrollment, waitlist, and retention trends.
+5. Continue using Jackrabbit’s dashboard for live finance, or add a secure Excel import for financial reporting.
+6. Only build direct transaction synchronization if Jackrabbit supplies a private API agreement covering schemas, authentication, rate limits, and payment data.
+
+The current Django application is still links-only: it has no Jackrabbit API client, webhook receiver, synchronization records, customer mirror, or reporting database. The clean next step would be a separate `jackrabbit_reporting` Django app so the vendor data and permissions remain isolated from the website CMS.
+
+Because the Zapier payloads can include names, addresses, phone numbers, email addresses, and student birthdates, the reporting area should use restricted permissions, minimal data retention, protected backups, audit logging, and no payment-instrument storage.

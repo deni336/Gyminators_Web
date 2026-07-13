@@ -6,6 +6,13 @@
         file_server
     }
 
+    handle /api/jackrabbit/v1/events/ {
+        request_body {
+            max_size 32KB
+        }
+        reverse_proxy app:8000
+    }
+
     handle {
         reverse_proxy app:8000
     }

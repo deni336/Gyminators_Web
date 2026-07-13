@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY manage.py ./
 COPY gyminators ./gyminators
 COPY website ./website
+COPY jackrabbit_reporting ./jackrabbit_reporting
 RUN mkdir -p /app/data /app/staticfiles /app/media && \
     DJANGO_SECRET_KEY=build-only-static-collection-key python manage.py collectstatic --noinput && \
     chown -R app:app /app

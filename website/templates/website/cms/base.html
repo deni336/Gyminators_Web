@@ -5,9 +5,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>{% block page_title %}Website manager{% endblock %} | {{ site.gym_name }}</title>
+  <title>{% block page_title %}Manager tools{% endblock %} | {{ site.gym_name }}</title>
   <link rel="icon" href="{% if site.favicon %}{{ site.favicon.url }}{% elif site.logo %}{{ site.logo.url }}{% else %}{% static 'images/logo.png' %}{% endif %}">
   <link rel="stylesheet" href="{% static 'site.css' %}">
+  {% block extra_head %}{% endblock %}
   <script src="{% static 'cms.js' %}" defer></script>
 </head>
 <body class="cmsPage">
@@ -15,15 +16,16 @@
   <header class="cmsHeader">
     <a class="cmsBrand" href="{% url 'dashboard' %}" aria-label="Gyminators manager dashboard">
       {% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="">{% endif %}
-      <span>Website manager</span>
+      <span>Manager tools</span>
     </a>
     <nav class="cmsNav" aria-label="Manager navigation">
       <a href="{% url 'dashboard' %}">Dashboard</a>
-      <a href="{% url 'content_hub' %}">Content</a>
+      {% if perms.jackrabbit_reporting.view_reporting_dashboard %}<a href="{% url 'jackrabbit_reporting:dashboard' %}">Reports</a>{% endif %}
+      {% if can_manage_website_content %}<a href="{% url 'content_hub' %}">Content</a>{% endif %}
       {% if perms.website.change_siteconfiguration %}<a href="{% url 'site_configuration_edit' %}">Site details</a>{% endif %}
       <a href="{% url 'home' %}">View website</a>
       <a href="{{ site.jackrabbit_owner_url }}" target="_blank" rel="noopener noreferrer">Open Jackrabbit</a>
-      {% if request.user.is_staff %}<a href="{% url 'admin:index' %}">Django admin</a>{% endif %}
+      {% if can_access_django_admin %}<a href="{% url 'admin:index' %}">Django admin</a>{% endif %}
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
     </nav>
   </header>
@@ -37,7 +39,7 @@
   <main class="cmsMain" id="cms-main">
     <div class="cmsPageHead">
       <div>
-        <small>{% block page_eyebrow %}Website manager{% endblock %}</small>
+        <small>{% block page_eyebrow %}Gyminators manager{% endblock %}</small>
         <h1>{% block page_heading %}Manage website content{% endblock %}</h1>
         {% block page_intro %}{% endblock %}
       </div>

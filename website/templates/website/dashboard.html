@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
-  <title>Website Dashboard | {{ site.gym_name }}</title>
+  <title>Manager Dashboard | {{ site.gym_name }}</title>
   <link rel="icon" href="{% if site.favicon %}{{ site.favicon.url }}{% elif site.logo %}{{ site.logo.url }}{% else %}{% static 'images/logo.png' %}{% endif %}">
   <link rel="stylesheet" href="{% static 'site.css' %}">
 </head>
@@ -14,11 +14,12 @@
 <main class="dashboard">
   <header class="dashHead">
     {% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}
-    <div role="navigation" aria-label="Website administrator navigation">
-      <span>Website administration</span>
-      <a href="{% url 'content_hub' %}">Manage content</a>
+    <div role="navigation" aria-label="Manager navigation">
+      <span>Manager tools</span>
+      {% if can_view_reporting %}<a href="{% url 'jackrabbit_reporting:dashboard' %}">Business reports</a>{% endif %}
+      {% if can_manage_content %}<a href="{% url 'content_hub' %}">Manage content</a>{% endif %}
       <a href="{% url 'home' %}">View website</a>
-      {% if request.user.is_staff %}<a href="{% url 'admin:index' %}">Django admin</a>{% endif %}
+      {% if can_access_django_admin %}<a href="{% url 'admin:index' %}">Django admin</a>{% endif %}
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit">Log out</button></form>
     </div>
   </header>
@@ -27,25 +28,26 @@
 
   <div class="dashBody" id="dashboard-content">
     <div class="dashTitle">
-      <div><small>Website dashboard</small><h1>Manage Gyminators online</h1></div>
+      <div><small>Manager dashboard</small><h1>Manage Gyminators online</h1></div>
       <span>Welcome, {{ request.user.get_short_name|default:request.user.username }}</span>
     </div>
 
-    <section class="dashManagement" aria-labelledby="website-management-heading">
+    {% if can_manage_content %}<section class="dashManagement" aria-labelledby="website-management-heading">
       <div><small>Website content</small><h2 id="website-management-heading">Keep the public site accurate</h2><p>Edit homepage copy and images, programs, events, social links, contact details, and the links into Jackrabbit.</p></div>
       <div class="dashManagementActions">
         <a class="cmsButton" href="{% url 'content_hub' %}">Open content manager</a>
-        {% if perms.website.change_siteconfiguration %}<a class="cmsButton secondary" href="{% url 'site_configuration_edit' %}">Homepage details</a>{% endif %}
+        {% if perms.website.change_siteconfiguration %}<a class="cmsButton secondary" href="{% url 'site_configuration_edit' %}">Homepage &amp; pictures</a>{% endif %}
       </div>
-    </section>
+    </section>{% endif %}
 
     <section class="jackrabbitDashboard" aria-labelledby="jackrabbit-heading">
       <div class="jackrabbitDashboardIntro">
         <small>Business operations</small>
         <h2 id="jackrabbit-heading">Jackrabbit is the source of truth</h2>
-        <p>Customer accounts, enrollment, class pricing, balances, payments, refunds, and business reporting are handled directly in Jackrabbit. This website does not collect card details or duplicate Jackrabbit financial records.</p>
+        <p>Jackrabbit remains authoritative. This website can keep a limited, non-financial reporting copy of approved operational events and the public class feed; balances, payments, refunds, and revenue stay in Jackrabbit.</p>
       </div>
       <div class="jackrabbitDashGrid">
+        {% if can_view_reporting %}<a href="{% url 'jackrabbit_reporting:dashboard' %}"><b>Business activity reports</b><span>Review customer growth, leads, enrollments, drops, waitlist activity, retention signals, classes, openings, and published tuition.</span><em>Open reports →</em></a>{% endif %}
         <a href="{{ site.jackrabbit_owner_url }}" target="_blank" rel="noopener noreferrer"><b>Owner & manager login</b><span>Open Jackrabbit dashboards, transactions, and reports.</span><em>Open Jackrabbit →</em></a>
         <a href="{{ site.staff_portal_url }}" target="_blank" rel="noopener noreferrer"><b>Instructor Staff Portal</b><span>Attendance, schedules, skills, and staff tools.</span><em>Open Staff Portal →</em></a>
         <a href="{{ site.registration_url }}" target="_blank" rel="noopener noreferrer"><b>Online Registration</b><span>Review the new-family enrollment experience.</span><em>Open registration →</em></a>

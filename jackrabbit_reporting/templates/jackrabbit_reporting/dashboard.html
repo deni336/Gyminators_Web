@@ -1,0 +1,147 @@
+{% extends "website/cms/base.html" %}
+{% load static %}
+
+{% block extra_head %}<link rel="stylesheet" href="{% static 'jackrabbit_reporting/reporting.css' %}">{% endblock %}
+{% block page_title %}Business reporting{% endblock %}
+{% block page_eyebrow %}Jackrabbit reporting copy{% endblock %}
+{% block page_heading %}Business activity dashboard{% endblock %}
+{% block page_intro %}<p>Operational activity received from Jackrabbit through the approved Zapier mappings. Jackrabbit remains authoritative.</p>{% endblock %}
+{% block head_actions %}
+  <a class="cmsButton secondary" href="{% url 'jackrabbit_reporting:classes' %}">Browse class schedule</a>
+  <a class="cmsButton secondary" href="{{ site.jackrabbit_owner_url }}" target="_blank" rel="noopener noreferrer">Open Jackrabbit</a>
+{% endblock %}
+
+{% block cms_content %}
+  <section class="jrStatus" aria-labelledby="jr-status-heading">
+    <div>
+      <small>Coverage and freshness</small>
+      <h2 id="jr-status-heading">Know what the numbers include</h2>
+      {% if first_delivery_received %}
+        <p>The first delivery or backfill was received <strong>{{ first_delivery_received|date:"M j, Y g:i A" }}</strong>. The earliest event date in this reporting copy is <strong>{{ earliest_event|date:"M j, Y g:i A" }}</strong>. Last delivery received <strong>{{ last_event_received|timesince }} ago</strong>.</p>
+      {% else %}
+        <p><strong>Awaiting the first Zapier delivery.</strong> Metric cards stay unavailable instead of showing misleading zeroes.</p>
+      {% endif %}
+      {% if not reporting_enabled %}<p><strong>Jackrabbit reporting and class refresh are disabled.</strong> Any values or classes below are retained historical data.</p>{% endif %}
+    </div>
+    <div class="jrStatusBadges" aria-label="Integration status">
+      <span class="{% if webhook_enabled %}isGood{% else %}isWarning{% endif %}">Ingestion endpoint {% if not reporting_enabled %}disabled{% elif webhook_enabled %}configured{% else %}not configured{% endif %}</span>
+      <span class="{% if class_summary.sync_enabled and class_summary.available and not class_summary.stale and not class_summary.latest_sync_failed and not class_summary.pending_confirmation %}isGood{% else %}isWarning{% endif %}">Class feed {% if not class_summary.sync_enabled %}refresh disabled{% elif class_summary.latest_sync_failed or class_summary.pending_confirmation %}needs attention{% elif not class_summary.available %}not synced{% elif class_summary.stale %}stale{% else %}current{% endif %}</span>
+    </div>
+  </section>
+
+  <div class="jrToolbar">
+    <form method="get" class="jrPeriodForm">
+      <label for="report-period">Reporting period</label>
+      <select id="report-period" name="period">
+        {% for days, label in period_choices.items %}<option value="{{ days }}"{% if days == period_days %} selected{% endif %}>Last {{ label }}</option>{% endfor %}
+      </select>
+      <button class="cmsButton" type="submit">Apply</button>
+    </form>
+    <p>{{ period_start|date:"M j, Y" }} through {{ period_end|date:"M j, Y" }}</p>
+  </div>
+
+  {% for group in metric_groups %}
+    <section class="jrMetricSection" aria-labelledby="metric-group-{{ forloop.counter }}">
+      <div class="jrSectionHead"><h2 id="metric-group-{{ forloop.counter }}">{{ group.title }}</h2><span>Last {{ period_label }}</span></div>
+      <div class="jrMetrics">
+        {% for metric in group.metrics %}
+          <article>
+            <small>{{ metric.label }}</small>
+            {% if metric.available %}
+              <b>{{ metric.value }}</b>
+              {% if metric.comparison_available %}<span>Previous {{ period_label }}: {{ metric.previous }}</span>{% else %}<span>Previous-period comparison unavailable</span>{% endif %}
+              <span>Coverage evidenced from {{ metric.coverage_start|date:"M j, Y" }}{% if metric.period_partial %} · selected period is partial{% endif %}</span>
+            {% else %}
+              <b class="isAwaiting">—</b>
+              <span>Awaiting this Zap/backfill</span>
+            {% endif %}
+            <p>{{ metric.note }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  {% endfor %}
+
+  <div class="jrTrendGrid">
+    <section class="jrTrendCard" aria-labelledby="customer-trend-heading">
+      <h2 id="customer-trend-heading">Customer record additions</h2>
+      <p>Families, contacts, and students are separate Jackrabbit record types.</p>
+      {% if customer_trend %}
+        <div class="jrTrendRows">
+          {% for row in customer_trend %}
+            <div class="jrTrendRow">
+              <strong>{{ row.label }}</strong>
+              <div>{% for item in row.values %}<span class="{% if not item.available %}isUnavailable{% elif item.partial %}isPartial{% endif %}">{% if item.available %}<i style="width:{{ item.percent }}%"></i><em>{{ item.label }} {{ item.value }}{% if item.unverified %} (unverified coverage){% elif item.partial %} (partial){% endif %}</em>{% else %}<em>{{ item.label }} not yet covered</em>{% endif %}</span>{% endfor %}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}<p class="jrEmpty">The customer-growth feeds have not delivered data yet.</p>{% endif %}
+    </section>
+    <section class="jrTrendCard" aria-labelledby="enrollment-trend-heading">
+      <h2 id="enrollment-trend-heading">Enrollment movement</h2>
+      <p>Enrollments and class drops by event date.</p>
+      {% if enrollment_trend %}
+        <div class="jrTrendRows">
+          {% for row in enrollment_trend %}
+            <div class="jrTrendRow">
+              <strong>{{ row.label }}</strong>
+              <div>{% for item in row.values %}<span class="{% if not item.available %}isUnavailable{% elif item.partial %}isPartial{% endif %}">{% if item.available %}<i class="series{{ forloop.counter }}" style="width:{{ item.percent }}%"></i><em>{{ item.label }} {{ item.value }}{% if item.unverified %} (unverified coverage){% elif item.partial %} (partial){% endif %}</em>{% else %}<em>{{ item.label }} not yet covered</em>{% endif %}</span>{% endfor %}</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}<p class="jrEmpty">The enrollment and drop feeds have not delivered data yet.</p>{% endif %}
+    </section>
+  </div>
+
+  <section class="jrClassSummary" aria-labelledby="class-summary-heading">
+    <div class="jrSectionHead">
+      <div>
+        <small>Public Jackrabbit class feed</small>
+        <h2 id="class-summary-heading">Schedule, openings, and published tuition</h2>
+      </div>
+      <div class="jrClassActions">
+        <a class="cmsButton secondary" href="{% url 'jackrabbit_reporting:classes' %}">View all classes</a>
+        {% if can_sync %}<form method="post" action="{% url 'jackrabbit_reporting:sync_classes' %}">{% csrf_token %}<button class="cmsButton" type="submit">Refresh now</button></form>{% endif %}
+      </div>
+    </div>
+    {% if class_summary.available %}
+      <div class="jrClassFacts">
+        <div><b>{{ class_summary.count }}</b><span>published classes</span></div>
+        <div><b>{{ class_summary.with_openings }}</b><span>classes showing openings</span></div>
+        <div><b>{{ class_summary.waitlist }}</b><span>waitlist/full listings</span></div>
+        <div><b>{{ class_summary.with_tuition }}</b><span>classes with published tuition</span></div>
+      </div>
+      <p class="jrFreshness {% if not class_summary.sync_enabled or class_summary.stale or class_summary.latest_sync_failed or class_summary.pending_confirmation %}isStale{% endif %}">Last successful class sync: {{ class_summary.last_success|date:"M j, Y g:i A" }}{% if not class_summary.sync_enabled %}. Refresh is disabled; this is retained historical data.{% elif class_summary.latest_sync_failed %}. The latest refresh failed; use Jackrabbit for current decisions.{% elif class_summary.pending_confirmation %}. The latest feed omitted {{ class_summary.pending_confirmation }} cached class{{ class_summary.pending_confirmation|pluralize }} once; they remain visible until a second valid feed confirms removal.{% elif class_summary.stale %}. Data is older than the configured freshness window.{% endif %}</p>
+      <div class="jrTableWrap" tabindex="0" role="region" aria-label="Class schedule preview; scroll horizontally for all columns">
+        <table class="jrTable">
+          <thead><tr><th>Class</th><th>Schedule</th><th>Location/session</th><th>Published tuition</th><th>Availability</th></tr></thead>
+          <tbody>
+            {% for class in class_preview %}
+              <tr>
+                <td><b>{{ class.name }}</b><small>{{ class.category1 }}{% if class.category2 %} · {{ class.category2 }}{% endif %}</small></td>
+                <td>{{ class.meeting_days_display }}<small>{{ class.time_display }}</small><small>{{ class.date_display }}</small></td>
+                <td>{{ class.location_name|default:class.location_code|default:"—" }}<small>{{ class.session|default:"Session not listed" }}{% if class.room %} · {{ class.room }}{% endif %}</small></td>
+                <td>{{ class.tuition_display }}<small>{% if class.is_per_day %}Depends on days selected · {% elif class.billing_cycle %}{{ class.billing_cycle }} · {% endif %}Not revenue</small></td>
+                <td><span class="jrAvailability {% if class.availability_state == 'warning' %}isWaitlist{% elif class.availability_state == 'neutral' %}isNeutral{% endif %}">{{ class.availability_label }}</span></td>
+              </tr>
+            {% empty %}<tr><td colspan="5">The latest successful feed contained no classes.</td></tr>{% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="jrEmpty"><p>{% if class_summary.latest_sync_failed %}The first class refresh failed, so no successful cached copy exists yet.{% elif not class_summary.sync_enabled %}Class refresh is disabled and no retained class copy is available.{% else %}The public class feed has not been synchronized yet.{% endif %}</p>{% if can_sync %}<form method="post" action="{% url 'jackrabbit_reporting:sync_classes' %}">{% csrf_token %}<button class="cmsButton" type="submit">Run the first class sync</button></form>{% endif %}</div>
+    {% endif %}
+  </section>
+
+  <details class="jrCoverage">
+    <summary>View Zapier coverage by metric</summary>
+    <div>
+      {% for item in coverage %}<p><span class="{% if item.connected %}isConnected{% endif %}"></span><b>{{ item.label }}</b>{% if item.connected %}First delivery {{ item.first_received|date:"M j, Y g:i A" }}; earliest stored event {{ item.first_event|date:"M j, Y g:i A" }}; latest delivery {{ item.last_received|date:"M j, Y g:i A" }}{% else %}Awaiting first delivery/backfill{% endif %}</p>{% endfor %}
+    </div>
+  </details>
+
+  <aside class="jrBoundary">
+    <strong>Financial boundary</strong>
+    <p>Published tuition is a class-listing price. Revenue, payments, balances, refunds, and accounts receivable remain in Jackrabbit and are not calculated here.</p>
+  </aside>
+{% endblock %}

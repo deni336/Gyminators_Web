@@ -1,0 +1,29 @@
+<div class="cmsImageControl" data-image-control>
+  {% if widget.is_initial %}
+    <div class="cmsCurrentImage" data-current-image>
+      <img src="{{ widget.value.url }}" alt="">
+      <div>
+        <strong>Current picture</strong>
+        <a href="{{ widget.value.url }}" target="_blank" rel="noopener">Open full size</a>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="cmsImageChooser">
+    <span>{% if widget.is_initial %}Choose a replacement{% else %}Choose a picture{% endif %}</span>
+    <input type="{{ widget.type }}" name="{{ widget.name }}"{% include "django/forms/widgets/attrs.html" %}>
+  </div>
+
+  {% if widget.is_initial and not widget.required %}
+    <label class="cmsRemoveImage" for="{{ widget.checkbox_id }}">
+      <input type="checkbox" name="{{ widget.checkbox_name }}" id="{{ widget.checkbox_id }}" data-image-clear{% if widget.attrs.disabled %} disabled{% endif %}{% if widget.attrs.checked %} checked{% endif %}>
+      <span>{{ widget.clear_checkbox_label }} when I save</span>
+    </label>
+  {% endif %}
+
+  <div class="cmsImagePreview" data-image-preview hidden>
+    <div><strong>New picture preview</strong><span data-image-details></span></div>
+    <img data-image-preview-image alt="Preview of the newly selected picture">
+  </div>
+  <p class="cmsImageStatus" data-image-status aria-live="polite"></p>
+</div>

@@ -62,7 +62,8 @@ tar -xzf "$media_backup" -C "$staging"
 
 pg_restore --exit-on-error --clean --if-exists --no-owner --dbname="$PGDATABASE" "$database_backup"
 
-# The application must be stopped while this replacement is performed.
+# The web application and class-sync worker must both be stopped while this
+# replacement is performed.
 for path in "$media_root"/* "$media_root"/.[!.]* "$media_root"/..?*; do
   [ -e "$path" ] || continue
   [ "$path" = "$staging" ] && continue

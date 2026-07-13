@@ -1,11 +1,18 @@
+import logging
 from datetime import timedelta
+from functools import partial
 
-from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
+from django.db import models, transaction
+from django.db.models.signals import post_delete, post_save, pre_save
+from django.dispatch import receiver
 from django.utils import timezone
 from PIL import Image, UnidentifiedImageError
+
+
+logger = logging.getLogger(__name__)
 
 
 # Retained only so historical migration 0001 can be replayed before the
@@ -19,10 +26,18 @@ def validate_image_upload(upload):
     try:
         image = Image.open(upload)
         width, height = image.size
+        if (image.format or "").upper() not in {"JPEG", "PNG", "WEBP"}:
+            raise ValidationError("Upload a valid JPEG, PNG, or WebP image.")
         image.verify()
-        upload.seek(0)
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
+    except ValidationError:
+        raise
+    except (Image.DecompressionBombError, UnidentifiedImageError, OSError, ValueError) as exc:
         raise ValidationError("Upload a valid JPEG, PNG, or WebP image.") from exc
+    finally:
+        try:
+            upload.seek(0)
+        except (AttributeError, OSError):
+            pass
     if width > 6000 or height > 6000 or width * height > 24_000_000:
         raise ValidationError("Images must be no larger than 6000×6000 or 24 megapixels.")
 
@@ -229,3 +244,63 @@ class SocialLink(models.Model):
 
     def __str__(self):
         return self.label
+
+
+MANAGED_IMAGE_FIELDS = {
+    SiteConfiguration: ("logo", "favicon", "hero_image", "why_image"),
+    Program: ("image",),
+    Event: ("image",),
+}
+
+
+def _delete_unreferenced_image(storage, name):
+    if not name:
+        return
+    for model, field_names in MANAGED_IMAGE_FIELDS.items():
+        if any(model._default_manager.filter(**{field_name: name}).exists() for field_name in field_names):
+            return
+    try:
+        storage.delete(name)
+    except Exception:
+        logger.exception("Could not delete superseded website image %s", name)
+
+
+@receiver(pre_save)
+def remember_replaced_images(sender, instance, **kwargs):
+    field_names = MANAGED_IMAGE_FIELDS.get(sender)
+    if not field_names or not instance.pk:
+        return
+    previous = sender._default_manager.filter(pk=instance.pk).first()
+    if not previous:
+        return
+    superseded = []
+    for field_name in field_names:
+        old_file = getattr(previous, field_name)
+        new_file = getattr(instance, field_name)
+        old_name = getattr(old_file, "name", "")
+        new_name = getattr(new_file, "name", "")
+        if old_name and old_name != new_name:
+            superseded.append((old_file.storage, old_name))
+    instance._superseded_image_files = superseded
+
+
+@receiver(post_save)
+def schedule_replaced_image_cleanup(sender, instance, **kwargs):
+    if sender not in MANAGED_IMAGE_FIELDS:
+        return
+    superseded = getattr(instance, "_superseded_image_files", ())
+    for storage, name in superseded:
+        transaction.on_commit(partial(_delete_unreferenced_image, storage, name))
+    if hasattr(instance, "_superseded_image_files"):
+        del instance._superseded_image_files
+
+
+@receiver(post_delete)
+def schedule_deleted_image_cleanup(sender, instance, **kwargs):
+    field_names = MANAGED_IMAGE_FIELDS.get(sender)
+    if not field_names:
+        return
+    for field_name in field_names:
+        deleted_file = getattr(instance, field_name)
+        if deleted_file and deleted_file.name:
+            transaction.on_commit(partial(_delete_unreferenced_image, deleted_file.storage, deleted_file.name))

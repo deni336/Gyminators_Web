@@ -20,16 +20,15 @@
             {% if field.field.widget.input_type == 'checkbox' %}
               <div class="cmsField cmsCheckbox{% if field.errors %} hasError{% endif %}">
                 {{ field }}
-                <div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{% if field.help_text %}<p class="cmsHelp" id="{{ field.id_for_label }}-help">{{ field.help_text }}</p>{% endif %}</div>
-                {% if field.errors %}<div class="cmsFieldErrors" id="{{ field.id_for_label }}-errors">{{ field.errors }}</div>{% endif %}
+                <div><label for="{{ field.id_for_label }}">{{ field.label }}</label>{% if field.help_text %}<p class="cmsHelp" id="{{ field.id_for_label }}_helptext">{{ field.help_text }}</p>{% endif %}</div>
+                {% if field.errors %}<div class="cmsFieldErrors">{{ field.errors }}</div>{% endif %}
               </div>
             {% else %}
               <div class="cmsField{% if field.errors %} hasError{% endif %}{% if field.field.widget.input_type == 'file' %} cmsImageField{% endif %}">
                 <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>
                 {{ field }}
-                {% if field.help_text %}<p class="cmsHelp" id="{{ field.id_for_label }}-help">{{ field.help_text }}</p>{% endif %}
-                {% if field.errors %}<div class="cmsFieldErrors" id="{{ field.id_for_label }}-errors">{{ field.errors }}</div>{% endif %}
-                {% if field.field.widget.input_type == 'file' %}<div class="cmsImagePreview" data-image-preview aria-live="polite"></div>{% endif %}
+                {% if field.help_text %}<p class="cmsHelp" id="{{ field.id_for_label }}_helptext">{{ field.help_text }}</p>{% endif %}
+                {% if field.errors %}<div class="cmsFieldErrors">{{ field.errors }}</div>{% endif %}
               </div>
             {% endif %}
           {% endfor %}

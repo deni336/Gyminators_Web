@@ -5,7 +5,7 @@ website. It uses plain-language steps and reflects the current website manager.
 It does not contain a username or password. Keep credentials in an approved
 password manager and never place them in website content fields.
 
-Last reviewed: July 10, 2026.
+Last reviewed: July 13, 2026.
 
 ## Quick navigation
 
@@ -18,6 +18,7 @@ Last reviewed: July 10, 2026.
 - [Manage homepage highlights](#manage-homepage-highlights)
 - [Manage social links](#manage-social-links)
 - [Pictures and alternative text](#pictures-and-alternative-text)
+- [Use the business activity dashboard](#use-the-business-activity-dashboard)
 - [Add staff and assign website roles](#add-staff-and-assign-website-roles)
 - [Backups and restores](#backups-and-restores)
 - [Troubleshooting](#troubleshooting)
@@ -36,9 +37,10 @@ Last reviewed: July 10, 2026.
    test every changed link while signed out.
 7. Return to the dashboard and **Log out** when finished.
 
-For family accounts, enrollment, classes, tuition, payments, refunds, or
-business reports, leave the website manager and use the appropriate Jackrabbit
-card on the dashboard.
+Use the website's **Business activity reports** for the limited operational
+signals described below. Use Jackrabbit itself for individual family or student
+records, enrollment decisions, authoritative class status, billing, payments,
+refunds, revenue, and financial reports.
 
 ## Two separate systems
 
@@ -46,7 +48,7 @@ The website and Jackrabbit have different jobs and different accounts.
 
 | System | Use it for | Do not use it for |
 | --- | --- | --- |
-| Gyminators website manager | Homepage wording and pictures, contact details, programs, events, highlights, social links, and links that send people to Jackrabbit | Families, enrollments, class availability, tuition, charges, card details, payments, refunds, or financial reports |
+| Gyminators website manager | Public content and pictures; limited aggregate activity reports; a read-only cached copy of published classes, openings, and listing tuition | Editing authoritative Jackrabbit records; billing, card details, payments, refunds, revenue, or financial reports |
 | Jackrabbit | Families and students, classes, openings, enrollment, tuition and fees, policies, billing, payments, refunds, staff operations, and business reporting | Editing the design or wording of the Gyminators public website |
 
 A website login does not grant access to Jackrabbit. A Jackrabbit login does not
@@ -138,9 +140,13 @@ After sign-in, the dashboard provides these destinations:
 
 - **Manage content** opens all public website editing areas.
 - **Homepage details** is a shortcut to the main site and homepage form.
+- **Business activity reports** opens approved non-financial activity metrics
+  and the cached public class schedule. It appears only for an account with the
+  reporting permission.
 - **View website** opens the public homepage.
-- **Django admin** appears only for accounts with Staff status. Normal content
-  work should be done in **Manage content**.
+- **Django admin** appears only for a Staff account that is a superuser or has
+  at least one raw model permission. Normal content work should be done in
+  **Manage content**.
 - The Jackrabbit cards open the owner/manager login, instructor Staff Portal,
   Online Registration, Parent Portal, and live class schedule in Jackrabbit.
 - **Log out** ends the website session.
@@ -298,6 +304,33 @@ the social network so it does not lead to a personal or private page.
 
 ## Pictures and alternative text
 
+Pictures are edited alongside the content they belong to:
+
+- From the dashboard, select **Homepage & pictures** to change the logo,
+  favicon, hero photograph, or **Why Gyminators** photograph.
+- Open **Manage content > Programs** to change a program-card photograph.
+- Open **Manage content > Events** to add or change an event thumbnail.
+
+To upload or replace a picture:
+
+1. Open the page or item you want to edit. If it already has an uploaded
+   picture, the form shows a **Current picture** thumbnail and an **Open full
+   size** link.
+2. Select **Choose a picture** or **Choose a replacement**, then select the
+   approved file from the computer or device.
+3. Review the **New picture preview**, filename, pixel dimensions, and file
+   size shown by the form.
+4. Review and update the nearby alternative-text field so it describes the
+   new picture rather than the old one.
+5. Select **Save and view website** and inspect the public page on both a wide
+   screen and a phone-sized screen.
+
+To remove an uploaded picture, select **Remove current picture when I save**
+and save the form. The current thumbnail dims before saving. Removing an upload
+may reveal a bundled fallback where one is configured; otherwise that content
+will have no picture. Replaced and removed uploads are deleted from website
+storage after the content change succeeds.
+
 The website accepts JPEG, PNG, and WebP files with these limits:
 
 - Maximum file size: 8 MB.
@@ -306,8 +339,9 @@ The website accepts JPEG, PNG, and WebP files with these limits:
 
 SVG, GIF, HEIC, PDF, and other file types are not accepted. For faster pages,
 resize and compress photographs before uploading. Use a wide landscape image
-for the hero, a clear logo file (often PNG), and a small square image for the
-favicon. The form shows a preview after a new file is selected.
+for the hero and content cards, a clear logo file (often PNG), and a small
+square image for the favicon. The dashboard does not crop or rotate files, and
+the public layout may trim the edges of a photograph to fit its space.
 
 Alternative text tells a person using a screen reader what a meaningful image
 shows. Describe the subject and useful context in one short sentence, for
@@ -316,25 +350,95 @@ example, “Coach helping a young gymnast balance on the beam.” Do not write
 name without approval. Program images require alternative text, and an uploaded
 event image cannot be saved without it.
 
-The file control may offer **Clear** for an existing upload. Clearing can reveal
-a bundled fallback image where one is configured; some items have no fallback.
-Always use **Save and view website** after replacing or clearing a picture.
+The Programs and Events list pages show a small thumbnail and identify whether
+the item uses an uploaded picture, a bundled fallback, or no picture.
+
+## Use the business activity dashboard
+
+Open **Dashboard > Business activity reports**. This area is available only to
+superusers and members of **Reporting Managers**. It is a limited operational
+view, not a replacement for Jackrabbit's customer, enrollment, or financial
+reports.
+
+Choose the last 7, 30, 90, or 365 days and select **Apply**. Each available card
+shows the selected period. It shows the immediately preceding period of the same
+length only after that feed has enough stored coverage; otherwise the comparison
+is marked unavailable:
+
+- **New families, contacts, students, and leads** count creation events received
+  through the corresponding Zapier connection. Those are different Jackrabbit
+  record types and should not be added together as a customer total.
+- **Enrollments** and **drops** count class activity. **Net enrollment activity**
+  is enrollments minus drops during the period; it is not the current number of
+  enrolled students.
+- **Waitlist additions**, **waitlist removals**, and their net activity measure
+  movement during the period. They are not the current waitlist size.
+- **Students inactive** and **students with churn signals** identify received
+  inactive or drop activity. A signal is not proof that a family has left the
+  business and should be checked in Jackrabbit before follow-up.
+
+A card marked **Awaiting this Zap/backfill** has not received that event type.
+It deliberately does not show zero. The coverage panel records when each feed
+first delivered data, and each card identifies the date from which coverage is
+evidenced. The page also shows the latest delivery time. Unless an
+approved historical backfill was completed, totals only cover activity after
+the connection began. Follow the
+[Jackrabbit Zapier setup guide](JACKRABBIT_ZAPIER_SETUP.md) when activating,
+testing, repairing, or backfilling a feed.
+
+A trend value labeled **unverified coverage** is a stored historical event that
+arrived after the date shown. The event is included, but that late delivery does
+not prove every event in the intervening dates was backfilled. The first and
+last chart buckets can also be labeled partial because the selected rolling
+window begins or ends partway through a day, week, or month.
+
+The class area is a read-only cache of Jackrabbit's public class feed. Select
+**Browse class schedule** to search and filter by category, session, location,
+day, or availability. Openings are not total capacity, and published tuition is
+a listing price—not collected income. Per-day classes show the total-tuition
+range for the available number of selected days, not a per-day rate. The row's
+**Open registration page** link is the public registration or waitlist page;
+open the Jackrabbit owner portal before making an enrollment or financial
+decision.
+
+Production refreshes the class cache about every 15 minutes. The dashboard
+shows the last successful refresh and warns if the data is stale or the latest
+attempt failed; a failed refresh keeps the last good copy. A class omitted once
+also remains visible until a second valid feed confirms its removal, and the
+dashboard warns during that confirmation window. Only a superuser or
+an account explicitly granted the class-sync permission sees **Refresh now**.
+Normal Reporting Managers should not need that control.
+
+This website stores only approved event types, timestamps, optional location,
+and opaque Jackrabbit identifiers for these reports. It does not provide a
+customer-name lookup and must never receive names, contact details, birthdates,
+notes, balances, payment data, or raw Zapier payloads.
 
 ## Add staff and assign website roles
 
-Only a trusted site administrator should manage user accounts. The two current
-groups—**Website Managers** and **Business Managers**—have the same website
-content permissions. Use **Website Managers** for new accounts. Business
-Managers is retained only for existing assignments; it does not grant
-Jackrabbit billing or reporting access. Assign one group, not both.
+Only a trusted site administrator should manage user accounts. The application
+has three groups:
+
+- **Website Managers** can edit public website content and pictures. Use this
+  group for new content editors.
+- **Business Managers** is retained for existing assignments and currently has
+  the same content permissions as Website Managers. Do not use it for new
+  accounts, and do not assume it grants reporting access.
+- **Reporting Managers** can view the limited business activity dashboard and
+  cached public class data. It cannot edit content or browse raw imported events
+  and classes, and it does not grant access to Jackrabbit itself.
+
+An owner who needs both content editing and reports should belong to **Website
+Managers** and **Reporting Managers**. Otherwise assign only the group needed.
 
 1. Sign in with a superuser or authorized staff administrator.
 2. Open **Django admin**, then **Users**.
 3. Select **Add user**, enter a unique username and a strong initial password,
    and save.
 4. Open the new user again. Add the person's name and work email.
-5. Leave **Active** selected and add **Website Managers** or **Business
-   Managers** under **Groups**.
+5. Leave **Active** selected and add **Website Managers**, **Reporting
+   Managers**, or both according to the approved job duties. Retain **Business
+   Managers** only for an existing legacy assignment.
 6. Leave **Superuser status** off for normal owners and managers.
 7. **Staff status** is not needed for the friendly content manager. Enable it
    only if the person must enter raw Django admin.
@@ -355,8 +459,8 @@ After a new installation or permission update, a technical administrator runs:
 ```
 
 In production, run `docker compose exec app python manage.py setup_roles`. This
-creates or refreshes the two groups but never creates users or assigns a person
-to a group.
+creates or refreshes all three groups but never creates users or assigns a
+person to a group.
 
 ## What the owner must manage in Jackrabbit
 
@@ -380,8 +484,10 @@ approved by Jackrabbit and the payment provider; test transactions may create
 real charges.
 
 Changing wording or links on the website does not configure any of the above.
-The website stores no card data and has no live copy of Jackrabbit customers,
-balances, transactions, or financial totals.
+The website stores no card data, customer profiles, balances, transactions, or
+financial totals. Its reporting copy is limited to approved opaque identifiers,
+event types and timestamps, optional location, and cached fields from the public
+class feed. Jackrabbit remains the authoritative record.
 
 ## Backups and restores
 
@@ -392,9 +498,12 @@ backups/gyminators-TIMESTAMP.dump
 backups/gyminators-media-TIMESTAMP.tar.gz
 ```
 
-The `.dump` contains the website's PostgreSQL database, including content and
-website user accounts. The `.tar.gz` contains manager-uploaded pictures. Both
-files with the same timestamp are required for a complete website backup.
+The `.dump` contains the website's PostgreSQL database, including content,
+website user accounts, the limited operational event ledger, and cached public
+classes. The `.tar.gz` contains manager-uploaded pictures. Both files with the
+same timestamp are required for a complete website backup. Treat the database
+copy as business-sensitive even though it does not contain customer names or
+financial records.
 
 A technical administrator creates a production backup with:
 
@@ -406,16 +515,19 @@ Copy both files to encrypted off-site storage. The server-side backup task
 removes its local backup files after 30 days, so the server must not be the only
 copy.
 
-These backups do **not** include Jackrabbit records, payment-provider records,
-the source-code repository, DNS, website secrets in `.env`, email accounts, or
-other third-party services. Jackrabbit data protection and exports are separate
-and must follow Jackrabbit's procedures.
+These backups do **not** include complete or authoritative Jackrabbit records,
+payment-provider records, the source-code repository, DNS, website secrets in
+`.env`, email accounts, or other third-party services. Jackrabbit data
+protection and exports are separate and must follow Jackrabbit's procedures.
 
 The production restore is a full replacement, not an undo button for one page.
-It rolls website content, uploaded pictures, and website accounts back to the
-selected timestamp. A technical administrator must take a fresh backup, verify
-the matching pair, schedule downtime, stop the app, perform the restore, restart
-the app, and check the logs and public site. Never restore while someone is
+It rolls website content, uploaded pictures, website accounts, reporting events,
+and the class cache back to the selected timestamp. A technical administrator
+must take a fresh backup, verify the matching pair, schedule downtime, stop both
+the web app and class-sync worker, perform the restore, restart both services,
+and check the logs and public site.
+Run a class refresh and reconcile any Zapier events delivered after the restored
+timestamp before relying on the dashboard. Never restore while someone is
 editing, and never run `docker compose down -v` because it deletes persistent
 volumes.
 
@@ -435,9 +547,10 @@ Copy-Item ".\data\gyminators-django.db" $destination
 if (Test-Path ".\media") { Copy-Item ".\media" $destination -Recurse }
 ```
 
-Treat this directory as sensitive because it contains website users and
-content. Keep the server stopped when replacing those files during a local
-restore, and have a technical administrator verify the selected snapshot first.
+Treat this directory as sensitive because it contains website users, content,
+and potentially limited reporting events and class data. Keep the server stopped
+when replacing those files during a local restore, and have a technical
+administrator verify the selected snapshot first.
 
 ## Troubleshooting
 
@@ -471,13 +584,31 @@ axes_reset_username USERNAME`. Resetting a lockout does not change the password.
 ### The dashboard says access is denied
 
 Ask a site administrator to confirm that the account is Active and belongs to
-Website Managers or Business Managers. A technical administrator should also
-run `setup_roles` after a new installation or permission update.
+Website Managers for content access, Reporting Managers for report access, or
+both when approved. Business Managers only supplies its legacy content access.
+A technical administrator should also run `setup_roles` after a new installation
+or permission update.
+
+### A reporting card says Awaiting this Zap/backfill
+
+That event type has never been received. Do not interpret it as zero. Ask the
+technical administrator to check the matching Zap, token configuration, and
+delivery history using the [Zapier setup guide](JACKRABBIT_ZAPIER_SETUP.md).
+
+### The class feed is stale or needs attention
+
+Continue using Jackrabbit itself for current decisions. A technical
+administrator can run `python manage.py check_jackrabbit_reporting` to inspect
+status without revealing source identifiers, then run
+`python manage.py sync_jackrabbit_classes`. A failed refresh leaves the last
+successful class copy in place.
 
 ### The Django admin link is missing
 
-This is expected for a dashboard-only manager. Staff status controls entry to
-raw Django admin; group membership controls the friendly content manager.
+This is expected for a dashboard-only manager. The link appears only when the
+account has Staff status and either superuser access or at least one raw model
+permission. Group membership independently controls the friendly content
+manager and reporting dashboard.
 
 ### A saved item does not appear
 
@@ -508,7 +639,8 @@ Before editing:
 - Confirm whether you are on the local copy or the production site.
 - Confirm the wording, dates, prices, policy links, and images with the owner.
 - Keep class pricing, availability, enrollments, and payments authoritative in
-  Jackrabbit rather than duplicating them on the website.
+  Jackrabbit. The reporting dashboard's public-feed cache is read-only and may
+  be delayed.
 - Take a complete matched production backup before bulk or high-impact work.
 
 Before saving:

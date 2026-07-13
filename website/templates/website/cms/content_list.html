@@ -12,10 +12,18 @@
 {% block cms_content %}
   <div class="cmsTableWrap">
     <table class="cmsTable">
-      <thead><tr>{% for label, attribute in config.columns %}<th scope="col">{{ label }}</th>{% endfor %}<th scope="col"><span class="srOnly">Actions</span></th></tr></thead>
+      <thead><tr>{% if config.image_field %}<th scope="col">Picture</th>{% endif %}{% for label, attribute in config.columns %}<th scope="col">{{ label }}</th>{% endfor %}<th scope="col"><span class="srOnly">Actions</span></th></tr></thead>
       <tbody>
         {% for row in rows %}
           <tr>
+            {% if config.image_field %}
+              <td>
+                <span class="cmsImageThumb">
+                  {% if row.picture.url %}<img src="{{ row.picture.url }}" alt="">{% endif %}
+                  <span>{{ row.picture.label }}</span>
+                </span>
+              </td>
+            {% endif %}
             {% for value in row.values %}<td>{{ value }}</td>{% endfor %}
             <td class="cmsRowActions">
               {% if can_change %}<a href="{% url 'content_edit' kind=kind pk=row.object.pk %}">Edit</a>{% endif %}
@@ -23,7 +31,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td class="cmsEmpty" colspan="{{ config.columns|length|add:'1' }}">No {{ config.title|lower }} have been added yet.{% if can_add %} Use &ldquo;Add {{ config.singular }}&rdquo; to create the first one.{% endif %}</td></tr>
+          <tr><td class="cmsEmpty" colspan="{% if config.image_field %}{{ config.columns|length|add:'2' }}{% else %}{{ config.columns|length|add:'1' }}{% endif %}">No {{ config.title|lower }} have been added yet.{% if can_add %} Use &ldquo;Add {{ config.singular }}&rdquo; to create the first one.{% endif %}</td></tr>
         {% endfor %}
       </tbody>
     </table>

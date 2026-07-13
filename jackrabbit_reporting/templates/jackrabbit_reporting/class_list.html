@@ -1,0 +1,68 @@
+{% extends "website/cms/base.html" %}
+{% load static %}
+
+{% block extra_head %}<link rel="stylesheet" href="{% static 'jackrabbit_reporting/reporting.css' %}">{% endblock %}
+{% block page_title %}Jackrabbit classes{% endblock %}
+{% block page_eyebrow %}Public Jackrabbit class feed{% endblock %}
+{% block page_heading %}Class schedule, openings, and tuition{% endblock %}
+{% block page_intro %}<p>This is a cached reporting copy of classes published by Jackrabbit. Registration and authoritative availability remain in Jackrabbit.</p>{% endblock %}
+{% block head_actions %}<a class="cmsButton secondary" href="{% url 'jackrabbit_reporting:dashboard' %}">Back to reports</a>{% endblock %}
+
+{% block cms_content %}
+  <section class="jrClassFeedStatus {% if not class_summary.sync_enabled or not class_summary.available or class_summary.stale or class_summary.latest_sync_failed or class_summary.pending_confirmation %}isWarning{% endif %}" role="status">
+    {% if not class_summary.sync_enabled %}
+      <strong>Class refresh is disabled.</strong> Any listings below are a retained historical copy. Use Jackrabbit for current availability.
+    {% elif class_summary.latest_sync_failed %}
+      {% if class_summary.available %}<strong>The latest class refresh failed.</strong> This is the last successful copy from {{ class_summary.last_success|date:"M j, Y g:i A" }}. Use Jackrabbit for current availability.{% else %}<strong>The first class refresh failed.</strong> No successful cached copy exists yet; use Jackrabbit for class information.{% endif %}
+    {% elif not class_summary.available %}
+      <strong>Class data has not been synchronized.</strong> The empty list below is not a statement that Jackrabbit has no classes.
+    {% elif class_summary.pending_confirmation %}
+      <strong>The latest feed omitted {{ class_summary.pending_confirmation }} cached class{{ class_summary.pending_confirmation|pluralize }} once.</strong> They remain visible until another valid feed confirms removal. Use Jackrabbit for current availability.
+    {% elif class_summary.stale %}
+      <strong>This class copy is stale.</strong> It was last refreshed {{ class_summary.last_success|date:"M j, Y g:i A" }}. Use Jackrabbit for current availability.
+    {% else %}
+      <strong>Cached public class feed.</strong> Last refreshed {{ class_summary.last_success|date:"M j, Y g:i A" }}; Jackrabbit remains authoritative.
+    {% endif %}
+  </section>
+
+  <form class="jrClassFilters" method="get">
+    <div><label for="class-search">Search</label><input id="class-search" name="q" value="{{ query }}" placeholder="Class or category"></div>
+    <div><label for="class-category">Category</label><select id="class-category" name="category"><option value="">All categories</option>{% for option in categories %}<option value="{{ option }}"{% if option == selected_category %} selected{% endif %}>{{ option }}</option>{% endfor %}</select></div>
+    <div><label for="class-session">Session</label><select id="class-session" name="session"><option value="">All sessions</option>{% for option in sessions %}<option value="{{ option }}"{% if option == selected_session %} selected{% endif %}>{{ option }}</option>{% endfor %}</select></div>
+    <div><label for="class-location">Location</label><select id="class-location" name="location"><option value="">All locations</option>{% for code, name in locations %}<option value="{{ code }}"{% if code == selected_location %} selected{% endif %}>{{ name|default:code }}</option>{% endfor %}</select></div>
+    <div><label for="class-day">Day</label><select id="class-day" name="day"><option value="">Any day</option>{% for value, label in day_choices %}<option value="{{ value }}"{% if value == selected_day %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div><label for="class-availability">Availability</label><select id="class-availability" name="availability"><option value="">All listings</option><option value="open"{% if selected_availability == "open" %} selected{% endif %}>Has openings</option><option value="waitlist"{% if selected_availability == "waitlist" %} selected{% endif %}>Waitlist/full</option></select></div>
+    <div class="jrFilterActions"><button class="cmsButton" type="submit">Filter classes</button><a href="{% url 'jackrabbit_reporting:classes' %}">Clear</a></div>
+  </form>
+
+  <div class="jrResultCount"><b>{{ page.paginator.count }}</b> class listing{{ page.paginator.count|pluralize }} in this cached copy</div>
+  <div class="jrTableWrap" tabindex="0" role="region" aria-label="Cached class schedule; scroll horizontally for all columns">
+    <table class="jrTable jrClassTable">
+      <thead><tr><th>Class</th><th>Days, time, and dates</th><th>Instructor</th><th>Location/session</th><th>Ages</th><th>Published tuition</th><th>Availability</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for class in page %}
+          <tr>
+            <td><b>{{ class.name }}</b><small>{{ class.category1 }}{% if class.category2 %} · {{ class.category2 }}{% endif %}{% if class.category3 %} · {{ class.category3 }}{% endif %}</small></td>
+            <td>{{ class.meeting_days_display }}<small>{{ class.time_display }}</small><small>{{ class.date_display }}</small></td>
+            <td>{{ class.instructors|join:", "|default:"—" }}</td>
+            <td>{{ class.location_name|default:class.location_code|default:"—" }}<small>{{ class.session|default:"Session not listed" }}{% if class.room %} · {{ class.room }}{% endif %}</small></td>
+            <td>{{ class.age_display }}</td>
+            <td>{{ class.tuition_display }}<small>{% if class.is_per_day %}Total depends on days selected{% elif class.billing_cycle %}{{ class.billing_cycle }}{% else %}Listing price{% endif %}</small></td>
+            <td><span class="jrAvailability {% if class.availability_state == 'warning' %}isWaitlist{% elif class.availability_state == 'neutral' %}isNeutral{% endif %}">{{ class.availability_label }}</span></td>
+            <td>{% if class.online_registration_url %}<a class="jrRegister" href="{{ class.online_registration_url }}" target="_blank" rel="noopener noreferrer">Open registration page</a>{% endif %}</td>
+          </tr>
+        {% empty %}<tr><td colspan="8" class="jrEmpty">{% if class_summary.available %}No classes in the cached copy match these filters.{% else %}No class copy is available yet.{% endif %}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if page.paginator.num_pages > 1 %}
+    <nav class="jrPagination" aria-label="Class results pages">
+      {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}&amp;q={{ query|urlencode }}&amp;category={{ selected_category|urlencode }}&amp;session={{ selected_session|urlencode }}&amp;location={{ selected_location|urlencode }}&amp;day={{ selected_day|urlencode }}&amp;availability={{ selected_availability|urlencode }}">Previous</a>{% endif %}
+      <span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?page={{ page.next_page_number }}&amp;q={{ query|urlencode }}&amp;category={{ selected_category|urlencode }}&amp;session={{ selected_session|urlencode }}&amp;location={{ selected_location|urlencode }}&amp;day={{ selected_day|urlencode }}&amp;availability={{ selected_availability|urlencode }}">Next</a>{% endif %}
+    </nav>
+  {% endif %}
+
+  <aside class="jrBoundary"><strong>Important</strong><p>Openings are not class capacity, and published tuition is not collected income. The row link is the public registration or waitlist page; use the Jackrabbit owner portal before making enrollment or financial decisions.</p></aside>
+{% endblock %}

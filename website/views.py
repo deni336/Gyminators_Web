@@ -63,6 +63,9 @@ CMS_TYPES = {
         "form": ProgramForm,
         "title": "Programs",
         "singular": "program",
+        "description": "Edit program details and upload, replace, or remove each program picture.",
+        "image_field": "image",
+        "fallback_image_field": "fallback_image",
         "columns": (("Program", "name"), ("Age range", "age_range"), ("Featured", "featured"), ("Published", "published"), ("Order", "display_order")),
     },
     "events": {
@@ -70,6 +73,8 @@ CMS_TYPES = {
         "form": EventForm,
         "title": "Events",
         "singular": "event",
+        "description": "Publish events with an optional picture, schedule, price note, and destination.",
+        "image_field": "image",
         "columns": (("Event", "title"), ("Starts", "starts_at"), ("Published", "published"), ("Expires", "expires_at"), ("Order", "display_order")),
     },
     "features": {
@@ -77,6 +82,7 @@ CMS_TYPES = {
         "form": HomepageFeatureForm,
         "title": "Homepage highlights",
         "singular": "highlight",
+        "description": "Manage the short proof points and benefits shown around the homepage.",
         "columns": (("Highlight", "title"), ("Section", "get_section_display"), ("Published", "published"), ("Order", "display_order")),
     },
     "social-links": {
@@ -84,6 +90,7 @@ CMS_TYPES = {
         "form": SocialLinkForm,
         "title": "Social links",
         "singular": "social link",
+        "description": "Keep the public social profile links in the footer accurate.",
         "columns": (("Label", "label"), ("URL", "url"), ("Published", "published"), ("Order", "display_order")),
     },
 }
@@ -97,6 +104,14 @@ def _can_manage_content(user):
     return user.is_superuser or user.has_perm("website.change_siteconfiguration") or any(
         _model_permission(user, "change", config["model"]) for config in CMS_TYPES.values()
     )
+
+
+def _can_view_reporting(user):
+    return user.has_perm("jackrabbit_reporting.view_reporting_dashboard")
+
+
+def _can_access_dashboard(user):
+    return _can_manage_content(user) or _can_view_reporting(user)
 
 
 def _cms_config(kind):
@@ -131,7 +146,14 @@ def content_hub(request):
     cards = []
     for kind, config in CMS_TYPES.items():
         if _model_permission(request.user, "view", config["model"]) or _model_permission(request.user, "change", config["model"]):
-            cards.append({"kind": kind, "title": config["title"], "count": config["model"].objects.count()})
+            cards.append(
+                {
+                    "kind": kind,
+                    "title": config["title"],
+                    "description": config["description"],
+                    "count": config["model"].objects.count(),
+                }
+            )
     return render(request, "website/cms/content_hub.html", {"cards": cards})
 
 
@@ -169,10 +191,25 @@ def content_list(request, kind):
     config = _cms_config(kind)
     if not (_model_permission(request.user, "view", config["model"]) or _model_permission(request.user, "change", config["model"])):
         raise PermissionDenied
-    rows = [
-        {"object": obj, "values": [_display_value(obj, attribute) for _, attribute in config["columns"]]}
-        for obj in config["model"].objects.all()
-    ]
+    rows = []
+    for obj in config["model"].objects.all():
+        picture = None
+        image_field = config.get("image_field")
+        if image_field:
+            upload = getattr(obj, image_field)
+            if upload:
+                picture = {"url": upload.url, "label": "Uploaded"}
+            else:
+                fallback_field = config.get("fallback_image_field")
+                fallback = getattr(obj, fallback_field, "") if fallback_field else ""
+                picture = {"url": static(fallback) if fallback else "", "label": "Bundled fallback" if fallback else "No picture"}
+        rows.append(
+            {
+                "object": obj,
+                "picture": picture,
+                "values": [_display_value(obj, attribute) for _, attribute in config["columns"]],
+            }
+        )
     return render(
         request,
         "website/cms/content_list.html",
@@ -239,6 +276,13 @@ def stripe_webhook_retired(request):
 
 @login_required
 def dashboard(request):
-    if not _can_manage_content(request.user):
+    if not _can_access_dashboard(request.user):
         raise PermissionDenied
-    return render(request, "website/dashboard.html", {"can_manage": True})
+    return render(
+        request,
+        "website/dashboard.html",
+        {
+            "can_manage_content": _can_manage_content(request.user),
+            "can_view_reporting": _can_view_reporting(request.user),
+        },
+    )

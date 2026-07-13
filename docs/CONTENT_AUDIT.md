@@ -1,6 +1,7 @@
 # Gyminators live-site content audit
 
 Verified July 10, 2026 against `https://www.gyminators.com/`.
+Reporting implementation notes updated July 13, 2026.
 
 This is a point-in-time content record, not a substitute for owner approval.
 Recheck prices, schedules, staff credentials, program ages, policies, and all
@@ -28,16 +29,28 @@ external links before launch. Editors should use the
 ## Jackrabbit workflow reflected locally
 
 - Django is the marketing website and owner-editable content manager. It does
-  not process payments or duplicate Jackrabbit family and transaction records.
+  not process payments or keep authoritative customer or transaction records.
+- The private reporting dashboard stores a privacy-minimized operational event
+  ledger: approved event types and timestamps, optional location, and opaque
+  Jackrabbit family/contact/student/class/enrollment identifiers. It rejects
+  names, contact details, birthdates, notes, balances, financial data, and raw
+  Zapier payloads.
 - New families are sent to Jackrabbit Online Registration.
 - Existing families are sent to the Jackrabbit Parent Portal for enrollment,
   balances, billing information, and payments.
-- The public class-schedule link uses Jackrabbit's hosted live listings so class
-  times, tuition, openings, and waitlists remain under one source of truth.
+- The public class-schedule link uses Jackrabbit's hosted live listings. The
+  private report page also caches the public class feed for search, schedule,
+  openings, waitlist/full status, and published-tuition reporting; Jackrabbit
+  remains authoritative and the cached copy may be delayed.
 - The private Django dashboard links authorized personnel to the separate
   Jackrabbit owner/manager login and instructor Staff Portal.
-- Financial and customer reporting remains in Jackrabbit. No payment API or
-  webhook synchronization with Django is configured.
+- Django reports the approved non-financial signals: new family/contact/student/
+  lead records, enrollments and drops, waitlist activity, inactive-student
+  signals, and public class listings. Coverage begins with each Zap or approved
+  backfill and therefore is not an authoritative current customer total.
+- Financial reporting remains in Jackrabbit. No payment API or financial webhook
+  synchronization with Django is configured, and published tuition is not
+  revenue.
 
 ## Published financial information requiring owner confirmation
 
@@ -49,9 +62,12 @@ The live Getting Started page currently shows:
 - $155/month for three classes per week.
 - Tuition due on or before the 25th and late after the 2nd.
 
-These values were not seeded into Django because Jackrabbit is the authoritative
-source for class tuition, registration fees, account balances, and payment
-processing. The owner must confirm and configure them in Jackrabbit before launch.
+These values were not seeded into editable Django content because Jackrabbit is
+the authoritative source for class tuition, registration fees, account balances,
+and payment processing. The reporting cache may display tuition that Jackrabbit
+publishes for an individual class, but it is not an editable price catalog or
+income calculation. The owner must confirm and configure prices in Jackrabbit
+before launch.
 
 ## Deliberately excluded or still provisional
 
@@ -80,6 +96,8 @@ processing. The owner must confirm and configure them in Jackrabbit before launc
 
 ## Jackrabbit implementation references
 
+- Local nine-feed setup and privacy rules:
+  [Jackrabbit Zapier setup](JACKRABBIT_ZAPIER_SETUP.md)
 - Online Registration: https://help.jackrabbitclass.com/help/online-web-reg
 - Parent Portal: https://help.jackrabbitclass.com/help/parent-portal
 - Require payment in the Parent Portal:
