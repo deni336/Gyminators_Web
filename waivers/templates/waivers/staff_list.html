@@ -1,0 +1,21 @@
+{% extends "waivers/base.html" %}
+{% block title %}Waiver records{% endblock %}
+{% block content %}
+<header class="hero-card"><p class="eyebrow">Authorized staff</p><h1>Waiver records</h1><p>Search and download immutable signed records.</p></header>
+<form method="post" class="staff-search" role="search">
+  {% csrf_token %}
+  <label for="waiver-search">Gymnast name or confirmation ID</label>
+  <div><input id="waiver-search" name="q" value="{{ query }}" maxlength="100"><button class="button button--primary" type="submit">Search records</button></div>
+</form>
+<div class="table-wrap">
+  <table>
+    <thead><tr><th>Signed</th><th>Gymnast</th><th>Enrollment</th><th>Status</th><th>Confirmation</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for waiver in waivers %}
+        <tr><td>{{ waiver.signed_at|date:"M j, Y g:i a" }}</td><td>{{ waiver.gymnast }}</td><td>{{ waiver.get_enrollment_type_display }}</td><td>{{ waiver.get_participant_status_display }}</td><td><code>{{ waiver.pk }}</code></td><td><a href="{% url 'waivers:staff_detail' waiver.pk %}">View</a> · <a href="{% url 'waivers:staff_pdf' waiver.pk %}">PDF</a></td></tr>
+      {% empty %}<tr><td colspan="6">No waiver records matched.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+

@@ -6,6 +6,7 @@ from . import views
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("class-schedule/", views.class_schedule, name="class_schedule"),
     path("favicon.ico", views.favicon, name="favicon"),
     path("api/health", views.health, name="health"),
     # One-release compatibility redirects for private links issued by the

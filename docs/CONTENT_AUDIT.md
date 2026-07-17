@@ -2,6 +2,7 @@
 
 Verified July 10, 2026 against `https://www.gyminators.com/`.
 Reporting implementation notes updated July 13, 2026.
+Online-waiver source notes updated July 16, 2026.
 
 This is a point-in-time content record, not a substitute for owner approval.
 Recheck prices, schedules, staff credentials, program ages, policies, and all
@@ -38,10 +39,14 @@ external links before launch. Editors should use the
 - New families are sent to Jackrabbit Online Registration.
 - Existing families are sent to the Jackrabbit Parent Portal for enrollment,
   balances, billing information, and payments.
-- The public class-schedule link uses Jackrabbit's hosted live listings. The
-  private report page also caches the public class feed for search, schedule,
-  openings, waitlist/full status, and published-tuition reporting; Jackrabbit
-  remains authoritative and the cached copy may be delayed.
+- The public `/class-schedule/` page and private report page use the same cached
+  Jackrabbit public feed for search, schedule, openings, waitlist/full status,
+  and published-tuition reporting. They show only classes whose published start
+  year is the current or next calendar year. Individual class actions open the
+  corresponding Jackrabbit-hosted registration or waitlist page; the general
+  Jackrabbit listing remains a signed-in manager reference rather than a public
+  website destination. Jackrabbit remains authoritative and the cached copy may
+  be delayed.
 - The private Django dashboard links authorized personnel to the separate
   Jackrabbit owner/manager login and instructor Staff Portal.
 - Django reports the approved non-financial signals: new family/contact/student/
@@ -69,6 +74,42 @@ publishes for an individual class, but it is not an editable price catalog or
 income calculation. The owner must confirm and configure prices in Jackrabbit
 before launch.
 
+## Online waiver source and approved legal baseline
+
+The public `/online-waiver/` workflow adapts the Regular/Camp and New/Returning
+branching from
+[deni336/Waiver_system at inspected commit `b44ccb1`](https://github.com/deni336/Waiver_system/tree/b44ccb132f0fe6cbd46f5ffa0aff697f183b89aa),
+used under the MIT License, Copyright (c) 2026 deni336. The project
+[license](../LICENSE) retains that notice; the attribution and license notice
+must remain with redistributed copies of the adapted feature.
+
+The client reports that its legal team approved the exact current agreement
+wording. The locked baseline is Regular version
+`waiver-system-b44ccb1-mainactivity-regular-v1` (SHA-256
+`e968971a67fc96279ffeaf96f43182e793377dfa1aea3feb621cd25c5c50506c`) and
+Camp version `waiver-system-b44ccb1-mainactivity-camp-v1` (SHA-256
+`587e76773817edcce0f4befb0018a328c82bea2c0b15f9436dc94d4d0668fef6`).
+The exact text and version identifiers must remain unchanged. Any text or
+version change requires renewed legal review before release and a new version;
+it must never rewrite a signed historical snapshot.
+
+This approval covers the agreement wording, not the separate privacy notice,
+minor/medical/signature-data consent, retention/deletion, security, access,
+backup, or end-to-end launch decisions. Existing signed records preserve an
+immutable versioned signed-agreement snapshot plus one validated, immutable PDF
+artifact in the database. Authorized downloads return the exact stored PDF bytes
+rather than regenerating the document.
+
+Until the remaining privacy, consent, retention, security, access, backup, and
+end-to-end checks are complete, a Website Manager keeps **Show online waiver**
+off under **Homepage and business details > Online waiver**. This hides the
+navigation link and homepage callout and disables direct public access to
+`/online-waiver/`; existing staff-only records remain available. Fresh and
+upgraded deployments install the feature disabled by default. After the
+remaining gates are complete, a Website Manager enters the approved Privacy
+URL, selects **Show online waiver**, and saves. Without both values the public
+route and promotions remain unavailable.
+
 ## Deliberately excluded or still provisional
 
 - Program age pages conflict between upper ages 17 and 18. The current local
@@ -78,7 +119,10 @@ before launch.
   call for availability.
 - Birthday timing conflicts between pages.
 - Upcoming/competition pages contain dated April 2026 flyers.
-- Linked medication and waiver forms appear old and require legal/owner review.
+- Linked medication and legacy waiver forms appear old. Reconcile or retire them
+  without replacing the approved current text. Any text/version replacement
+  requires renewed legal review before release so families do not see
+  conflicting agreements.
 - The source homepage repeats program and trial content; the redesign keeps one
   concise version of each.
 

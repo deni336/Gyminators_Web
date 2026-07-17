@@ -20,11 +20,11 @@
 <div class="topbar"><span>✦ {{ site.announcement }}</span><span class="toplinks"><a href="{{ site.phone_link }}">☎ {{ site.phone }}</a><a href="{{ site.portal_url }}">Parent Portal →</a></span></div>
 <header>
   <a href="{% url 'home' %}" class="brand">{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}</a>
-  <nav aria-label="Primary navigation">{% if site.show_programs %}<a href="#programs">Programs</a>{% endif %}{% if site.show_payments %}<a href="#memberships">Enroll & Pay</a>{% endif %}{% if site.show_why %}<a href="#why">Why Gyminators</a>{% endif %}{% if site.show_events %}<a href="#events">Camps & Events</a>{% endif %}<a href="#contact">Contact</a></nav>
+  <nav aria-label="Primary navigation">{% if site.show_programs %}<a href="#programs">Programs</a>{% endif %}<a href="{% url 'class_schedule' %}">Class Schedule</a>{% if site.show_payments %}<a href="#memberships">Enroll & Pay</a>{% endif %}{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}">Online Waiver</a>{% endif %}{% if site.show_why %}<a href="#why">Why Gyminators</a>{% endif %}{% if site.show_events %}<a href="#events">Camps & Events</a>{% endif %}<a href="#contact">Contact</a></nav>
   {% if site.header_button_text %}<a class="button small" href="{{ site.registration_url }}">{{ site.header_button_text }} →</a>{% endif %}
   <button class="menub" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-navigation">☰</button>
 </header>
-<div class="mobileNav" id="mobile-navigation">{% if site.show_programs %}<a href="#programs">Programs</a>{% endif %}{% if site.show_payments %}<a href="#memberships">Enroll & Pay</a>{% endif %}{% if site.show_why %}<a href="#why">Why Gyminators</a>{% endif %}{% if site.show_events %}<a href="#events">Camps & Events</a>{% endif %}<a href="#contact">Contact</a></div>
+<div class="mobileNav" id="mobile-navigation">{% if site.show_programs %}<a href="#programs">Programs</a>{% endif %}<a href="{% url 'class_schedule' %}">Class Schedule</a>{% if site.show_payments %}<a href="#memberships">Enroll & Pay</a>{% endif %}{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}">Online Waiver</a>{% endif %}{% if site.show_why %}<a href="#why">Why Gyminators</a>{% endif %}{% if site.show_events %}<a href="#events">Camps & Events</a>{% endif %}<a href="#contact">Contact</a></div>
 
 {% if messages %}<div class="djangoMessages" role="status">{% for message in messages %}<p class="{{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
 
@@ -43,9 +43,23 @@
     <div class="jackrabbitGrid">
       <article><small>Start here</small><h3>{{ site.payment_new_heading }}</h3><p>{{ site.payment_new_body }}</p><a class="button" href="{{ site.registration_url }}" target="_blank" rel="noopener noreferrer">{{ site.payment_new_button }} →</a></article>
       <article><small>Family account</small><h3>{{ site.payment_existing_heading }}</h3><p>{{ site.payment_existing_body }}</p><a class="button" href="{{ site.portal_url }}" target="_blank" rel="noopener noreferrer">{{ site.payment_existing_button }} →</a></article>
-      <article><small>Live availability</small><h3>Class schedule</h3><p>See current classes, meeting times, tuition, and openings directly from Gyminators&rsquo; Jackrabbit system.</p><a class="button secondaryButton" href="{{ site.class_schedule_url }}" target="_blank" rel="noopener noreferrer">View live classes →</a></article>
+      <article><small>Class calendar</small><h3>Class schedule</h3><p>Browse current-year and next-year classes, meeting times, tuition, and openings in one place.</p><a class="button secondaryButton" href="{% url 'class_schedule' %}">Browse class calendar →</a></article>
     </div>
     <div class="jackrabbitBenefits"><ul>{% if site.payment_benefit_one %}<li>✓ {{ site.payment_benefit_one }}</li>{% endif %}{% if site.payment_benefit_two %}<li>✓ {{ site.payment_benefit_two }}</li>{% endif %}{% if site.payment_benefit_three %}<li>✓ {{ site.payment_benefit_three }}</li>{% endif %}</ul>{% if site.payment_portal_note %}<p>{{ site.payment_portal_note }}</p>{% endif %}</div>
+  </section>{% endif %}
+
+  {% if site.online_waiver_available %}<section class="onlineWaiver" id="online-waiver">
+    <div class="onlineWaiverCopy">
+      <div class="eyebrow light">Online waiver</div>
+      <h2>Sign before they <em>shine.</em></h2>
+      <p>Complete the right agreement for regular classes or camp from any phone, tablet, or computer. New families can create a gymnast profile; returning families can find an existing gymnast and sign for today.</p>
+      <a class="whiteBtn" href="{% url 'waivers:start' %}">Complete an online waiver &rarr;</a>
+    </div>
+    <ol class="onlineWaiverSteps" aria-label="Online waiver steps">
+      <li><span>01</span><div><b>Choose enrollment</b><small>Regular classes or camp</small></div></li>
+      <li><span>02</span><div><b>Add or find the gymnast</b><small>Have guardian and emergency details ready</small></div></li>
+      <li><span>03</span><div><b>Review and sign</b><small>A parent or legal guardian must complete the agreement</small></div></li>
+    </ol>
   </section>{% endif %}
 
   {% if site.show_programs %}<section class="programSection" id="programs">
@@ -61,6 +75,6 @@
   {% if site.show_trial %}<section class="trial"><div class="eyebrow light">{{ site.trial_eyebrow }}</div><h2>{{ site.trial_heading }}</h2><p>{{ site.trial_body }}</p><a class="whiteBtn" href="{{ site.registration_url }}">{{ site.trial_button_text }} →</a></section>{% endif %}
 </main>
 
-<footer id="contact"><div class="footerTop"><div>{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}<p>{{ site.footer_body }}</p><div class="socialLinks">{% for link in social_links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}</div></div><div><p class="footerHeading">Visit us</p><p><a href="{{ site.map_url }}">{{ site.street_address }}<br>{{ site.city_state_zip }}</a></p><p>{{ site.hours_note }}</p></div><div><p class="footerHeading">Let’s talk</p><a href="{{ site.phone_link }}" class="bigPhone">{{ site.phone }}</a><a href="mailto:{{ site.email }}" class="footerLink">{{ site.email }}</a><a href="{{ site.portal_url }}" class="footerLink">Parent Portal →</a>{% if site.privacy_url %}<a href="{{ site.privacy_url }}" class="footerLink">Privacy policy →</a>{% endif %}{% if site.terms_url %}<a href="{{ site.terms_url }}" class="footerLink">Terms →</a>{% endif %}{% if site.cancellation_url %}<a href="{{ site.cancellation_url }}" class="footerLink">Cancellation & refunds →</a>{% endif %}{% if site.accessibility_url %}<a href="{{ site.accessibility_url }}" class="footerLink">Accessibility →</a>{% endif %}<a href="{% url 'login' %}" class="footerLink">Staff login →</a></div></div><div class="footerBottom"><span>© {% now "Y" %} {{ site.gym_name }}</span>{% if site.footer_credentials %}<span>{{ site.footer_credentials }}</span>{% endif %}</div></footer>
+<footer id="contact"><div class="footerTop"><div>{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}<p>{{ site.footer_body }}</p><div class="socialLinks">{% for link in social_links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}</div></div><div><p class="footerHeading">Visit us</p><p><a href="{{ site.map_url }}">{{ site.street_address }}<br>{{ site.city_state_zip }}</a></p><p>{{ site.hours_note }}</p></div><div><p class="footerHeading">Let’s talk</p><a href="{{ site.phone_link }}" class="bigPhone">{{ site.phone }}</a><a href="mailto:{{ site.email }}" class="footerLink">{{ site.email }}</a><a href="{% url 'class_schedule' %}" class="footerLink">Class Schedule →</a>{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}" class="footerLink">Online Waiver →</a>{% endif %}<a href="{{ site.portal_url }}" class="footerLink">Parent Portal →</a>{% if site.privacy_url %}<a href="{{ site.privacy_url }}" class="footerLink">Privacy policy →</a>{% endif %}{% if site.terms_url %}<a href="{{ site.terms_url }}" class="footerLink">Terms →</a>{% endif %}{% if site.cancellation_url %}<a href="{{ site.cancellation_url }}" class="footerLink">Cancellation & refunds →</a>{% endif %}{% if site.accessibility_url %}<a href="{{ site.accessibility_url }}" class="footerLink">Accessibility →</a>{% endif %}<a href="{% url 'login' %}" class="footerLink">Staff login →</a></div></div><div class="footerBottom"><span>© {% now "Y" %} {{ site.gym_name }}</span>{% if site.footer_credentials %}<span>{{ site.footer_credentials }}</span>{% endif %}</div></footer>
 </body>
 </html>

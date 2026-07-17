@@ -5,15 +5,12 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
-from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from jackrabbit_reporting.models import JackrabbitClass
 from jackrabbit_reporting.security import usable_webhook_token
 from jackrabbit_reporting.services.class_feed import ClassFeedError, sync_classes
 from jackrabbit_reporting.services.ingestion import (
@@ -26,6 +23,11 @@ from jackrabbit_reporting.services.metrics import (
     dashboard_data,
     resolve_period,
 )
+from jackrabbit_reporting.services.schedule import class_calendar_context
+
+
+MAX_CALENDAR_CLASSES = 250
+MAX_CALENDAR_OCCURRENCES = 5000
 
 
 def _require_reporting_permission(user):
@@ -104,75 +106,15 @@ def reporting_dashboard(request):
 @login_required
 def class_list(request):
     _require_reporting_permission(request.user)
-    all_classes = JackrabbitClass.objects.filter(
-        organization_id=str(settings.JACKRABBIT_ORG_ID).strip(),
-        is_current=True,
+    context = class_calendar_context(
+        request.GET,
+        settings.JACKRABBIT_ORG_ID,
+        max_classes=MAX_CALENDAR_CLASSES,
+        max_occurrences=MAX_CALENDAR_OCCURRENCES,
     )
-    classes = all_classes
-    query = request.GET.get("q", "").strip()[:100]
-    location = request.GET.get("location", "").strip()[:80]
-    session = request.GET.get("session", "").strip()[:160]
-    category = request.GET.get("category", "").strip()[:160]
-    day = request.GET.get("day", "").strip().lower()
-    availability = request.GET.get("availability", "").strip().lower()
-
-    if query:
-        classes = classes.filter(
-            Q(name__icontains=query)
-            | Q(description__icontains=query)
-            | Q(category1__icontains=query)
-            | Q(category2__icontains=query)
-            | Q(category3__icontains=query)
-        )
-    if location:
-        classes = classes.filter(location_code=location)
-    if session:
-        classes = classes.filter(session=session)
-    if category:
-        classes = classes.filter(category1=category)
-    valid_days = {key for key, _label in JackrabbitClass.DAY_LABELS}
-    if day in valid_days:
-        classes = classes.filter(**{f"meeting_days__{day}": True})
-    else:
-        day = ""
-    if availability in {"open", "waitlist"}:
-        wanted_state = "open" if availability == "open" else "warning"
-        matching_ids = [
-            class_record.pk
-            for class_record in classes.only(
-                "id",
-                "waitlist",
-                "is_per_day",
-                "calculated_openings",
-                "openings_by_day",
-                "meeting_days",
-            )
-            if class_record.availability_state == wanted_state
-        ]
-        classes = classes.filter(pk__in=matching_ids)
-    else:
-        availability = ""
-
-    classes = classes.order_by("category1", "name", "start_time")
-    page = Paginator(classes, 50).get_page(request.GET.get("page"))
-    return render(
-        request,
-        "jackrabbit_reporting/class_list.html",
-        {
-            "page": page,
-            "query": query,
-            "selected_location": location,
-            "selected_session": session,
-            "selected_category": category,
-            "selected_day": day,
-            "selected_availability": availability,
-            "class_summary": class_reporting_summary(),
-            "locations": all_classes.exclude(location_code="").values_list("location_code", "location_name").order_by("location_code").distinct(),
-            "sessions": all_classes.exclude(session="").values_list("session", flat=True).order_by("session").distinct(),
-            "categories": all_classes.exclude(category1="").values_list("category1", flat=True).order_by("category1").distinct(),
-            "day_choices": JackrabbitClass.DAY_LABELS,
-        },
-    )
+    context["schedule_timezone"] = settings.TIME_ZONE
+    context["class_summary"] = class_reporting_summary()
+    return render(request, "jackrabbit_reporting/class_list.html", context)
 
 
 @require_POST

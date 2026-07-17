@@ -100,13 +100,13 @@
         <h2 id="class-summary-heading">Schedule, openings, and published tuition</h2>
       </div>
       <div class="jrClassActions">
-        <a class="cmsButton secondary" href="{% url 'jackrabbit_reporting:classes' %}">View all classes</a>
+        <a class="cmsButton secondary" href="{% url 'jackrabbit_reporting:classes' %}">Open class calendar</a>
         {% if can_sync %}<form method="post" action="{% url 'jackrabbit_reporting:sync_classes' %}">{% csrf_token %}<button class="cmsButton" type="submit">Refresh now</button></form>{% endif %}
       </div>
     </div>
     {% if class_summary.available %}
       <div class="jrClassFacts">
-        <div><b>{{ class_summary.count }}</b><span>published classes</span></div>
+        <div><b>{{ class_summary.count }}</b><span>{{ class_summary.schedule_year_start }}&ndash;{{ class_summary.schedule_year_end }} classes</span></div>
         <div><b>{{ class_summary.with_openings }}</b><span>classes showing openings</span></div>
         <div><b>{{ class_summary.waitlist }}</b><span>waitlist/full listings</span></div>
         <div><b>{{ class_summary.with_tuition }}</b><span>classes with published tuition</span></div>
@@ -119,12 +119,12 @@
             {% for class in class_preview %}
               <tr>
                 <td><b>{{ class.name }}</b><small>{{ class.category1 }}{% if class.category2 %} · {{ class.category2 }}{% endif %}</small></td>
-                <td>{{ class.meeting_days_display }}<small>{{ class.time_display }}</small><small>{{ class.date_display }}</small></td>
+                <td>{{ class.meeting_days_display }}<small>{{ class.time_display }}</small><small>{{ class.schedule_scope_display }}</small></td>
                 <td>{{ class.location_name|default:class.location_code|default:"—" }}<small>{{ class.session|default:"Session not listed" }}{% if class.room %} · {{ class.room }}{% endif %}</small></td>
                 <td>{{ class.tuition_display }}<small>{% if class.is_per_day %}Depends on days selected · {% elif class.billing_cycle %}{{ class.billing_cycle }} · {% endif %}Not revenue</small></td>
                 <td><span class="jrAvailability {% if class.availability_state == 'warning' %}isWaitlist{% elif class.availability_state == 'neutral' %}isNeutral{% endif %}">{{ class.availability_label }}</span></td>
               </tr>
-            {% empty %}<tr><td colspan="5">The latest successful feed contained no classes.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="5">No current-year or next-year classes are available in the cached feed.</td></tr>{% endfor %}
           </tbody>
         </table>
       </div>

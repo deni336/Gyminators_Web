@@ -1,0 +1,14 @@
+{% extends "waivers/base.html" %}
+{% block title %}Waiver received{% endblock %}
+{% block content %}
+<section class="success-card">
+  <div class="success-mark" aria-hidden="true">✓</div>
+  <p class="eyebrow">Complete</p>
+  <h1>Your waiver was received</h1>
+  <p>Keep this confirmation ID for your records:</p>
+  <p class="confirmation-id">{{ confirmation_id }}</p>
+  <p>No personal or medical information is shown on this page.</p>
+  <a class="button button--primary" href="/">Return to Gyminators</a>
+</section>
+{% endblock %}
+

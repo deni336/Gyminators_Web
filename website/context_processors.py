@@ -9,6 +9,7 @@ def _can_access_django_admin(user):
     dashboard_only_permissions = {
         "jackrabbit_reporting.view_reporting_dashboard",
         "jackrabbit_reporting.manage_jackrabbit_sync",
+        "waivers.view_waiver",
     }
     return any(
         permission not in dashboard_only_permissions

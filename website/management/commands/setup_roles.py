@@ -31,6 +31,10 @@ REPORTING_PERMISSIONS = {
     "view_reporting_dashboard",
 }
 
+WAIVER_PERMISSIONS = {
+    "view_waiver",
+}
+
 
 def resolve_website_permissions(codenames):
     permissions = {
@@ -68,10 +72,28 @@ def resolve_reporting_permissions(codenames):
     return list(permissions.values())
 
 
+def resolve_waiver_permissions(codenames):
+    permissions = {
+        permission.codename: permission
+        for permission in Permission.objects.filter(
+            content_type__app_label="waivers",
+            codename__in=codenames,
+        )
+    }
+    missing = sorted(set(codenames) - permissions.keys())
+    if missing:
+        raise CommandError(
+            "Missing online-waiver permissions: "
+            + ", ".join(missing)
+            + ". Run `python manage.py migrate` before setup_roles."
+        )
+    return list(permissions.values())
+
+
 class Command(BaseCommand):
     help = (
-        "Create or reset the Website Managers, Business Managers, and Reporting "
-        "Managers groups. Financial reporting stays in Jackrabbit."
+        "Create or reset the Website Managers, Business Managers, Reporting "
+        "Managers, and Waiver Managers groups. Financial reporting stays in Jackrabbit."
     )
 
     @transaction.atomic
@@ -113,6 +135,15 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"{state} Reporting Managers with {len(REPORTING_PERMISSIONS)} permissions."
+            )
+        )
+
+        waiver_group, created = Group.objects.get_or_create(name="Waiver Managers")
+        waiver_group.permissions.set(resolve_waiver_permissions(WAIVER_PERMISSIONS))
+        state = "Created" if created else "Updated"
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"{state} Waiver Managers with {len(WAIVER_PERMISSIONS)} permissions."
             )
         )
 

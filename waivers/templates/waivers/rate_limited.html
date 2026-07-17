@@ -1,0 +1,10 @@
+{% extends "waivers/base.html" %}
+{% block title %}Please wait{% endblock %}
+{% block content %}
+<section class="form-card form-card--narrow">
+  <p class="eyebrow">Please wait</p>
+  <h1>Signing is temporarily unavailable</h1>
+  <p>{{ message }}</p>
+  <a class="button button--secondary" href="{% url 'waivers:start' %}">Return to waiver start</a>
+</section>
+{% endblock %}

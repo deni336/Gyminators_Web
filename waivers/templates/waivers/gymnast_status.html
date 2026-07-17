@@ -1,0 +1,14 @@
+{% extends "waivers/base.html" %}
+{% block title %}{{ agreement.title }}{% endblock %}
+{% block content %}
+<nav class="breadcrumbs" aria-label="Breadcrumb"><a href="{% url 'waivers:start' %}">Enrollment types</a><span aria-hidden="true">/</span><span>{{ agreement.title }}</span></nav>
+<section class="hero-card">
+  <p class="eyebrow">{{ agreement.title }}</p>
+  <h1>Is this gymnast new or returning?</h1>
+  <p>Returning families can find a saved profile using three matching details. Every waiver requires new initials, agreement, and signature.</p>
+</section>
+<div class="choice-grid">
+  <a class="choice-card" href="{% url 'waivers:new' agreement.enrollment_type %}"><strong>New gymnast</strong><span>Create a profile and sign</span></a>
+  <a class="choice-card choice-card--coral" href="{% url 'waivers:returning_search' agreement.enrollment_type %}"><strong>Returning gymnast</strong><span>Find a profile and sign today</span></a>
+</div>
+{% endblock %}

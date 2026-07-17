@@ -10,7 +10,7 @@ DOMAIN = os.getenv("DOMAIN", "localhost")
 ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", f"{DOMAIN},localhost,127.0.0.1").split(",") if host.strip()]
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv("CSRF_TRUSTED_ORIGINS", f"https://{DOMAIN}" if DOMAIN != "localhost" else "").split(",") if origin.strip()]
 
-INSTALLED_APPS = ["django.contrib.admin","django.contrib.auth","django.contrib.contenttypes","django.contrib.sessions","django.contrib.messages","django.contrib.staticfiles","axes","website","jackrabbit_reporting.apps.JackrabbitReportingConfig"]
+INSTALLED_APPS = ["django.contrib.admin","django.contrib.auth","django.contrib.contenttypes","django.contrib.sessions","django.contrib.messages","django.contrib.staticfiles","axes","website","waivers.apps.WaiversConfig","jackrabbit_reporting.apps.JackrabbitReportingConfig"]
 MIDDLEWARE = ["django.middleware.security.SecurityMiddleware"]
 if not DEBUG:
     MIDDLEWARE.append("whitenoise.middleware.WhiteNoiseMiddleware")

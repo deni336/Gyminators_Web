@@ -1,10 +1,11 @@
 import tempfile
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from io import BytesIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
@@ -12,22 +13,74 @@ from django.urls import reverse
 from django.utils import timezone
 from PIL import Image
 
+from jackrabbit_reporting.models import ClassSyncRun, JackrabbitClass
+
 from .forms import SiteConfigurationForm
 from .models import Event, Program, SiteConfiguration
 
 
 class WebsiteTests(TestCase):
     def test_homepage_uses_verified_business_and_jackrabbit_content(self):
+        site = SiteConfiguration.get_solo()
+        site.show_online_waiver = True
+        site.privacy_url = "https://example.com/privacy"
+        site.save()
+
         response = self.client.get(reverse("home"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Since 2003")
         self.assertContains(response, "Ages 2½ – 5")
         self.assertContains(response, "app3.jackrabbitclass.com/regv2.asp?id=154877")
         self.assertContains(response, "ParentPortal/Login?orgId=154877")
-        self.assertContains(response, "OpeningsDirect?OrgID=154877")
+        self.assertContains(
+            response,
+            f'href="{reverse("class_schedule")}"',
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            f'href="{site.class_schedule_url}"',
+            html=False,
+        )
         self.assertContains(response, "Jackrabbit registration &amp; billing")
+        self.assertContains(response, "Online Waiver")
+        self.assertContains(response, reverse("waivers:start"))
+        self.assertContains(response, site.privacy_url)
         self.assertNotContains(response, "Stripe")
         self.assertNotContains(response, "private payment link")
+
+    def test_online_waiver_is_disabled_by_default(self):
+        site = SiteConfiguration.get_solo()
+        self.assertFalse(site.show_online_waiver)
+
+        response = self.client.get(reverse("home"))
+
+        self.assertNotContains(response, "Online Waiver")
+        self.assertNotContains(
+            response,
+            f'href="{reverse("waivers:start")}"',
+            html=False,
+        )
+        self.assertEqual(self.client.get(reverse("waivers:start")).status_code, 404)
+
+    def test_online_waiver_requires_an_approved_privacy_policy_url(self):
+        site = SiteConfiguration.get_solo()
+        site.show_online_waiver = True
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            "Add the approved privacy policy URL before enabling the online waiver.",
+        ):
+            site.full_clean()
+
+    def test_online_waiver_help_locks_the_approved_agreement_wording(self):
+        help_text = SiteConfiguration._meta.get_field("show_online_waiver").help_text
+
+        self.assertIn("legally approved", help_text)
+        self.assertIn("must remain unchanged", help_text)
+        self.assertIn("any text or version change requires renewed legal review", help_text)
+        self.assertIn("approved privacy policy URL", help_text)
+        self.assertIn("retention and security checks", help_text)
 
     def test_health_endpoint_checks_database(self):
         self.assertEqual(self.client.get(reverse("health")).json(), {"status": "ok"})
@@ -44,6 +97,29 @@ class WebsiteTests(TestCase):
         user.user_permissions.add(Permission.objects.get(codename="change_program"))
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
 
+    def test_waiver_viewer_can_open_dashboard_and_waiver_records(self):
+        user = get_user_model().objects.create_user(
+            "waiver-reviewer",
+            password="safe-test-password",
+            is_staff=True,
+        )
+        user.user_permissions.add(
+            Permission.objects.get(content_type__app_label="waivers", codename="view_waiver")
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, reverse("waivers:staff_list"))
+        self.assertContains(response, "stored, validated PDF artifact")
+        self.assertNotContains(response, "Django admin")
+        self.assertNotContains(
+            response,
+            f'href="{reverse("waivers:start")}"',
+            html=False,
+        )
+
     def test_website_admin_login_accepts_superuser_credentials(self):
         get_user_model().objects.create_superuser("owner-admin", "owner@example.com", "safe-test-password")
         response = self.client.post(reverse("login"), {"username": "owner-admin", "password": "safe-test-password"})
@@ -56,6 +132,163 @@ class WebsiteTests(TestCase):
             for _ in range(5):
                 response = self.client.post(reverse("login"), {"username": "locked-owner", "password": "wrong-password"})
         self.assertEqual(response.status_code, 429)
+
+
+@override_settings(JACKRABBIT_ORG_ID="154877")
+class PublicClassScheduleTests(TestCase):
+    @staticmethod
+    def add_class(external_id, name, **overrides):
+        today = timezone.localdate()
+        values = {
+            "organization_id": "154877",
+            "external_id": external_id,
+            "name": name,
+            "category1": "Recreation",
+            "location_code": "GG",
+            "location_name": "Main Gym",
+            "start_date": date(today.year, today.month, 1),
+            "end_date": date(today.year, 12, 31),
+            "start_time": "09:00",
+            "end_time": "09:50",
+            "meeting_days": {"mon": True},
+            "calculated_openings": 4,
+            "tuition": "85.00",
+            "online_registration_url": (
+                "https://app.jackrabbitclass.com/reg.asp?id=154877"
+                f"&class={external_id}"
+            ),
+        }
+        values.update(overrides)
+        return JackrabbitClass.objects.create(**values)
+
+    def test_calendar_is_anonymous_and_has_no_manager_controls(self):
+        today = timezone.localdate()
+        current = self.add_class("public-current", "Public Current Gymnastics")
+
+        response = self.client.get(
+            reverse("class_schedule"),
+            {"month": f"{today.year}-{today.month:02d}"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["user"].is_anonymous)
+        self.assertContains(response, "Find a class that")
+        self.assertContains(response, "Public Current Gymnastics")
+        self.assertContains(response, current.online_registration_url.replace("&", "&amp;"))
+        self.assertContains(response, "Dates are projected from recurring weekdays")
+        self.assertNotContains(response, "Back to reports")
+        self.assertNotContains(response, "Refresh now")
+        self.assertNotContains(response, "Financial boundary")
+        self.assertNotContains(response, reverse("jackrabbit_reporting:dashboard"))
+        self.assertNotContains(response, reverse("jackrabbit_reporting:classes"))
+        self.assertNotContains(response, reverse("jackrabbit_reporting:sync_classes"))
+
+    def test_calendar_includes_current_classes_but_excludes_legacy_and_out_of_window_rows(self):
+        today = timezone.localdate()
+        self.add_class("current", "Current Horizon Class")
+        self.add_class(
+            "legacy",
+            "Legacy Historical Class",
+            start_date=date(today.year - 1, 1, 1),
+            end_date=date(today.year - 1, 12, 31),
+        )
+        self.add_class(
+            "outside",
+            "Beyond Calendar Window Class",
+            start_date=date(today.year + 2, 1, 1),
+            end_date=date(today.year + 2, 12, 31),
+        )
+        self.add_class(
+            "inactive",
+            "Inactive Current Class",
+            is_current=False,
+        )
+        self.add_class(
+            "other-organization",
+            "Other Organization Class",
+            organization_id="different-organization",
+        )
+
+        response = self.client.get(
+            reverse("class_schedule"),
+            {"month": f"{today.year}-{today.month:02d}"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["candidate_class_count"], 1)
+        self.assertEqual(response.context["class_count"], 1)
+        self.assertContains(response, "Current Horizon Class")
+        self.assertNotContains(response, "Legacy Historical Class")
+        self.assertNotContains(response, "Beyond Calendar Window Class")
+        self.assertNotContains(response, "Inactive Current Class")
+        self.assertNotContains(response, "Other Organization Class")
+
+    def test_next_year_is_inside_the_public_calendar_horizon(self):
+        today = timezone.localdate()
+        self.add_class(
+            "next-year",
+            "Next Year Gymnastics",
+            start_date=date(today.year + 1, 1, 1),
+            end_date=date(today.year + 1, 1, 31),
+            meeting_days={"wed": True},
+        )
+
+        response = self.client.get(
+            reverse("class_schedule"),
+            {"month": f"{today.year + 1}-01"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["schedule_year_end"], today.year + 1)
+        self.assertEqual(response.context["class_count"], 1)
+        self.assertContains(response, "Next Year Gymnastics")
+
+    @override_settings(JACKRABBIT_CLASS_STALE_AFTER_MINUTES=60)
+    def test_stale_empty_snapshot_is_not_labeled_current(self):
+        ClassSyncRun.objects.create(
+            organization_id="154877",
+            status=ClassSyncRun.SUCCESS,
+            started_at=timezone.now() - timedelta(hours=2),
+            finished_at=timezone.now() - timedelta(hours=2),
+        )
+
+        response = self.client.get(reverse("class_schedule"))
+
+        self.assertContains(response, "Please verify before registering")
+        self.assertNotContains(response, "Current schedule snapshot")
+
+    @override_settings(JACKRABBIT_REPORTING_ENABLED=False)
+    def test_disabled_refresh_and_pending_rows_are_not_labeled_current(self):
+        self.add_class(
+            "pending-public",
+            "Pending Confirmation Gymnastics",
+            missed_syncs=1,
+        )
+        ClassSyncRun.objects.create(
+            organization_id="154877",
+            status=ClassSyncRun.SUCCESS,
+            finished_at=timezone.now(),
+        )
+
+        response = self.client.get(reverse("class_schedule"))
+
+        self.assertContains(response, "Please verify before registering")
+        self.assertNotContains(response, "Current schedule snapshot")
+
+    def test_undated_matches_do_not_claim_that_no_classes_match(self):
+        self.add_class(
+            "schedule-tbc",
+            "Schedule To Be Confirmed Gymnastics",
+            meeting_days={},
+        )
+
+        response = self.client.get(reverse("class_schedule"))
+
+        self.assertEqual(response.context["class_count"], 1)
+        self.assertEqual(response.context["calendar_occurrence_count"], 0)
+        self.assertContains(response, "No dated meetings are listed")
+        self.assertContains(response, "Schedule To Be Confirmed Gymnastics")
+        self.assertNotContains(response, "No classes match this month")
 
 
 class CMSBaseTests(TestCase):
@@ -146,6 +379,21 @@ class CMSContentTests(CMSBaseTests):
         self.user = self.create_staff_user()
         self.client.force_login(self.user)
 
+    def test_site_configuration_shows_approved_waiver_launch_help(self):
+        self.grant(self.user, "change_siteconfiguration")
+
+        response = self.client.get(reverse("site_configuration_edit"))
+
+        self.assertContains(
+            response,
+            "The current Regular and Camp wording is legally approved and must remain unchanged",
+        )
+        self.assertContains(response, "any text or version change requires renewed legal review")
+        self.assertContains(
+            response,
+            "Required before the public online-waiver workflow can be enabled.",
+        )
+
     def test_site_configuration_and_jackrabbit_links_render_publicly(self):
         self.grant(self.user, "change_siteconfiguration")
         payload = self.site_payload(
@@ -163,7 +411,16 @@ class CMSContentTests(CMSBaseTests):
         homepage = self.client.get(reverse("home"))
         self.assertContains(homepage, "Manager controlled headline")
         self.assertContains(homepage, "orgId=999999")
-        self.assertContains(homepage, "OrgID=999999")
+        self.assertContains(
+            homepage,
+            f'href="{reverse("class_schedule")}"',
+            html=False,
+        )
+        self.assertNotContains(
+            homepage,
+            f'href="{site.class_schedule_url}"',
+            html=False,
+        )
 
     def test_manager_can_upload_a_homepage_picture_with_content_changes(self):
         self.grant(self.user, "change_siteconfiguration")
@@ -318,11 +575,32 @@ class CMSContentTests(CMSBaseTests):
 
 
 class JackrabbitWorkflowTests(CMSBaseTests):
-    def test_public_actions_use_hosted_jackrabbit_pages(self):
+    def test_registration_and_portal_stay_hosted_while_schedule_is_internal(self):
+        site = SiteConfiguration.get_solo()
         response = self.client.get(reverse("home"))
         self.assertContains(response, "Register with Jackrabbit")
         self.assertContains(response, "Open Parent Portal")
-        self.assertContains(response, "View live classes")
+        self.assertContains(response, "Browse class calendar")
+        self.assertContains(
+            response,
+            f'href="{site.registration_url}"',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f'href="{site.portal_url}"',
+            html=False,
+        )
+        self.assertContains(
+            response,
+            f'href="{reverse("class_schedule")}"',
+            html=False,
+        )
+        self.assertNotContains(
+            response,
+            f'href="{site.class_schedule_url}"',
+            html=False,
+        )
         self.assertContains(response, 'target="_blank"')
         self.assertContains(response, 'rel="noopener noreferrer"')
         self.assertNotContains(response, "Stripe checkout")
@@ -361,3 +639,9 @@ class JackrabbitWorkflowTests(CMSBaseTests):
             codenames = set(group.permissions.values_list("codename", flat=True))
             self.assertTrue({"change_siteconfiguration", "change_program"}.issubset(codenames))
             self.assertTrue(codenames.isdisjoint(retired))
+
+        waiver_managers = Group.objects.get(name="Waiver Managers")
+        self.assertEqual(
+            set(waiver_managers.permissions.values_list("codename", flat=True)),
+            {"view_waiver"},
+        )

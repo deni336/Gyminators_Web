@@ -21,10 +21,11 @@ class SiteConfigurationAdmin(UpdatedByAdminMixin, admin.ModelAdmin):
         ("Hero", {"fields": ("header_button_text", "hero_eyebrow", "hero_heading", "hero_accent", "hero_body", "hero_image", "hero_image_alt", "hero_primary_button", "hero_secondary_button")}),
         ("Introduction", {"fields": ("intro_eyebrow", "intro_heading", "intro_accent", "intro_lead", "intro_body")}),
         ("Jackrabbit registration and payments", {"fields": ("show_payments", "payment_eyebrow", "payment_heading", "payment_body", "payment_benefit_one", "payment_benefit_two", "payment_benefit_three", "payment_portal_note", "payment_new_heading", "payment_new_body", "payment_new_button", "payment_existing_heading", "payment_existing_body", "payment_existing_button")}),
+        ("Online waiver", {"fields": ("show_online_waiver", "privacy_url")}),
         ("Programs", {"fields": ("show_programs", "programs_eyebrow", "programs_heading", "programs_body")}),
         ("Why Gyminators", {"fields": ("show_why", "why_eyebrow", "why_heading", "why_body", "why_image", "why_image_alt")}),
         ("Events", {"fields": ("show_events", "events_eyebrow", "events_heading", "events_body")}),
-        ("Trial and footer", {"fields": ("show_trial", "trial_eyebrow", "trial_heading", "trial_body", "trial_button_text", "footer_body", "footer_credentials", "privacy_url", "terms_url", "cancellation_url")}),
+        ("Trial and footer", {"fields": ("show_trial", "trial_eyebrow", "trial_heading", "trial_body", "trial_button_text", "footer_body", "footer_credentials", "terms_url", "cancellation_url")}),
         ("Audit", {"fields": ("updated_at", "updated_by")}),
     )
 

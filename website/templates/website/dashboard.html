@@ -17,6 +17,7 @@
     <div role="navigation" aria-label="Manager navigation">
       <span>Manager tools</span>
       {% if can_view_reporting %}<a href="{% url 'jackrabbit_reporting:dashboard' %}">Business reports</a>{% endif %}
+      {% if can_view_waivers %}<a href="{% url 'waivers:staff_list' %}">Waiver records</a>{% endif %}
       {% if can_manage_content %}<a href="{% url 'content_hub' %}">Manage content</a>{% endif %}
       <a href="{% url 'home' %}">View website</a>
       {% if can_access_django_admin %}<a href="{% url 'admin:index' %}">Django admin</a>{% endif %}
@@ -40,6 +41,14 @@
       </div>
     </section>{% endif %}
 
+    {% if can_view_waivers %}<section class="dashManagement" aria-labelledby="waiver-management-heading">
+      <div><small>Online waivers</small><h2 id="waiver-management-heading">Review signed waiver records</h2><p>Find completed regular and camp agreements and download the stored, validated PDF artifact for each immutable signed record. These records contain private information about minors and are restricted to approved staff.</p></div>
+      <div class="dashManagementActions">
+        <a class="cmsButton" href="{% url 'waivers:staff_list' %}">Open waiver records</a>
+        {% if site.online_waiver_available %}<a class="cmsButton secondary" href="{% url 'waivers:start' %}">Open public waiver</a>{% endif %}
+      </div>
+    </section>{% endif %}
+
     <section class="jackrabbitDashboard" aria-labelledby="jackrabbit-heading">
       <div class="jackrabbitDashboardIntro">
         <small>Business operations</small>
@@ -52,7 +61,7 @@
         <a href="{{ site.staff_portal_url }}" target="_blank" rel="noopener noreferrer"><b>Instructor Staff Portal</b><span>Attendance, schedules, skills, and staff tools.</span><em>Open Staff Portal →</em></a>
         <a href="{{ site.registration_url }}" target="_blank" rel="noopener noreferrer"><b>Online Registration</b><span>Review the new-family enrollment experience.</span><em>Open registration →</em></a>
         <a href="{{ site.portal_url }}" target="_blank" rel="noopener noreferrer"><b>Parent Portal</b><span>Review the existing-family account and payment experience.</span><em>Open Parent Portal →</em></a>
-        <a href="{{ site.class_schedule_url }}" target="_blank" rel="noopener noreferrer"><b>Live class schedule</b><span>Check published classes, tuition, and openings.</span><em>View classes →</em></a>
+        <a href="{% url 'class_schedule' %}"><b>Public class schedule</b><span>Review the website&rsquo;s class calendar, tuition, and openings.</span><em>Open class calendar →</em></a>
       </div>
     </section>
   </div>

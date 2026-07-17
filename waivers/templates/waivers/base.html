@@ -1,0 +1,30 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{% block title %}Online waiver{% endblock %} | Gyminators Gymnastics</title>
+  <link rel="stylesheet" href="{% static 'waivers/waivers.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Gyminators Gymnastics home">
+      {% if site.logo %}<img class="brand-logo" src="{{ site.logo.url }}" width="64" height="56" alt="">{% else %}<img class="brand-logo" src="{% static 'images/logo.png' %}" width="64" height="56" alt="">{% endif %}
+      <span><strong>Gyminators Gymnastics</strong><small>Online waiver</small></span>
+    </a>
+    <a class="home-link" href="/">Back to website</a>
+  </header>
+  <main id="main-content" class="page-shell">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <p>Gyminators Gymnastics &amp; Tumbling, Inc.</p>
+    {% if site.privacy_url %}<p><a href="{{ site.privacy_url }}">Privacy policy</a></p>{% endif %}
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

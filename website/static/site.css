@@ -191,3 +191,19 @@
 @media(max-width:900px){.jackrabbitDashGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.jackrabbitDashboard{padding:25px 20px}.jackrabbitDashGrid{grid-template-columns:1fr}}
 .adminLogin form>a{display:block;font-size:13px;font-weight:700;margin-top:10px}.adminLogin .jackrabbitLoginLink{color:var(--purple);margin-top:18px;padding-top:18px;border-top:1px solid #eee}
+
+/* Public entry point for the private online-waiver workflow */
+.onlineWaiver{background:var(--ink);color:#fff;padding:105px max(7vw,30px);display:grid;grid-template-columns:minmax(0,1.05fr) minmax(340px,.95fr);align-items:center;gap:9vw}
+.onlineWaiverCopy{max-width:660px}
+.onlineWaiver h2{font:800 clamp(48px,5.8vw,82px)/1.02 Manrope,'DM Sans',sans-serif;letter-spacing:-.055em;margin:24px 0}
+.onlineWaiver h2 em{color:var(--cyan);font-style:normal}
+.onlineWaiverCopy>p{color:#bbb5c1;font-size:17px;line-height:1.75;max-width:610px;margin:0 0 30px}
+.onlineWaiverSteps{list-style:none;padding:0;margin:0;border-top:1px solid #3c3741}
+.onlineWaiverSteps li{display:grid;grid-template-columns:54px minmax(0,1fr);align-items:center;gap:18px;padding:24px 0;border-bottom:1px solid #3c3741}
+.onlineWaiverSteps li>span{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--cyan);color:var(--ink);font-size:11px;font-weight:800}
+.onlineWaiverSteps div{display:flex;flex-direction:column;gap:5px}
+.onlineWaiverSteps b{font:700 18px Manrope,'DM Sans',sans-serif}
+.onlineWaiverSteps small{color:#9f98a5;font-size:13px;line-height:1.5}
+@media(max-width:1150px) and (min-width:901px){nav{gap:17px}}
+@media(max-width:850px){.onlineWaiver{grid-template-columns:1fr;gap:55px;padding:85px 30px}}
+@media(max-width:600px){.onlineWaiver{padding:78px 22px}.onlineWaiver h2{font-size:48px}.onlineWaiverCopy>p{font-size:16px}}

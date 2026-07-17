@@ -1,0 +1,21 @@
+{% extends "waivers/base.html" %}
+{% block title %}Choose enrollment{% endblock %}
+{% block content %}
+<section class="hero-card">
+  <p class="eyebrow">Start here</p>
+  <h1>Choose an enrollment type</h1>
+  <p>Select the agreement that applies to today’s enrollment.</p>
+</section>
+<div class="choice-grid" aria-label="Enrollment types">
+  {% for agreement in agreements %}
+    <a class="choice-card" href="{% url 'waivers:gymnast_status' agreement.enrollment_type %}">
+      <strong>{{ agreement.title }}</strong>
+      <span>{% if agreement.enrollment_type == 'regular' %}Athlete membership packet{% else %}Camp agreement and consent{% endif %}</span>
+    </a>
+  {% endfor %}
+</div>
+<aside class="privacy-note">
+  <strong>Privacy note</strong>
+  <p>Use a private device when possible. Public search, result, and confirmation pages do not display guardian contact or medical details. Review how submitted information is handled in our <a href="{{ site.privacy_url }}">privacy policy</a>.</p>
+</aside>
+{% endblock %}

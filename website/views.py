@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -13,6 +14,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.templatetags.static import static
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
+
+from jackrabbit_reporting.services.metrics import class_reporting_summary
+from jackrabbit_reporting.services.schedule import class_calendar_context
 
 from .forms import EventForm, HomepageFeatureForm, ProgramForm, SiteConfigurationForm, SocialLinkForm
 from .models import Event, HomepageFeature, Program, SiteConfiguration, SocialLink
@@ -41,6 +45,27 @@ def home(request):
             "social_links": SocialLink.objects.filter(published=True),
         },
     )
+
+
+def class_schedule(request):
+    context = class_calendar_context(request.GET, settings.JACKRABBIT_ORG_ID)
+    summary = class_reporting_summary()
+    requires_verification = bool(
+        (summary["available"] and (summary["stale"] or summary["latest_sync_failed"]))
+        or summary["pending_confirmation"]
+        or (summary["count"] and not summary["sync_enabled"])
+    )
+    context.update(
+        {
+            "calendar_last_updated": summary["last_success"],
+            "calendar_is_stale": requires_verification,
+            "calendar_snapshot_available": summary["available"],
+            "calendar_total_count": summary["count"],
+            "schedule_timezone": settings.TIME_ZONE,
+            "social_links": SocialLink.objects.filter(published=True),
+        }
+    )
+    return render(request, "website/class_schedule.html", context)
 
 
 def favicon(request):
@@ -110,8 +135,12 @@ def _can_view_reporting(user):
     return user.has_perm("jackrabbit_reporting.view_reporting_dashboard")
 
 
+def _can_view_waivers(user):
+    return user.has_perm("waivers.view_waiver")
+
+
 def _can_access_dashboard(user):
-    return _can_manage_content(user) or _can_view_reporting(user)
+    return _can_manage_content(user) or _can_view_reporting(user) or _can_view_waivers(user)
 
 
 def _cms_config(kind):
@@ -177,10 +206,11 @@ def site_configuration_edit(request):
         ("Hero", ("header_button_text", "hero_eyebrow", "hero_heading", "hero_accent", "hero_body", "hero_image", "hero_image_alt", "hero_primary_button", "hero_secondary_button")),
         ("Introduction", ("intro_eyebrow", "intro_heading", "intro_accent", "intro_lead", "intro_body")),
         ("Jackrabbit registration and payments", ("show_payments", "payment_eyebrow", "payment_heading", "payment_body", "payment_benefit_one", "payment_benefit_two", "payment_benefit_three", "payment_portal_note", "payment_new_heading", "payment_new_body", "payment_new_button", "payment_existing_heading", "payment_existing_body", "payment_existing_button")),
+        ("Online waiver", ("show_online_waiver", "privacy_url")),
         ("Programs", ("show_programs", "programs_eyebrow", "programs_heading", "programs_body")),
         ("Why Gyminators", ("show_why", "why_eyebrow", "why_heading", "why_body", "why_image", "why_image_alt")),
         ("Events", ("show_events", "events_eyebrow", "events_heading", "events_body")),
-        ("Trial and footer", ("show_trial", "trial_eyebrow", "trial_heading", "trial_body", "trial_button_text", "footer_body", "footer_credentials", "privacy_url", "terms_url", "cancellation_url")),
+        ("Trial and footer", ("show_trial", "trial_eyebrow", "trial_heading", "trial_body", "trial_button_text", "footer_body", "footer_credentials", "terms_url", "cancellation_url")),
     )
     field_groups = [(title, [form[name] for name in fields]) for title, fields in groups]
     return render(request, "website/cms/site_form.html", {"form": form, "field_groups": field_groups})
@@ -284,5 +314,6 @@ def dashboard(request):
         {
             "can_manage_content": _can_manage_content(request.user),
             "can_view_reporting": _can_view_reporting(request.user),
+            "can_view_waivers": _can_view_waivers(request.user),
         },
     )

@@ -1,8 +1,8 @@
 # Gyminators Gymnastics
 
-A server-rendered Django marketing website with owner-managed content,
-non-financial Jackrabbit activity reporting, a cached public class feed,
-PostgreSQL, and a production Docker deployment.
+A server-rendered Django marketing website with owner-managed content, an
+online waiver workflow, non-financial Jackrabbit activity reporting, a cached
+public class feed, PostgreSQL, and a production Docker deployment.
 
 ## Documentation
 
@@ -40,6 +40,10 @@ production deployment method.
 Open:
 
 - Website: `http://localhost:8000`
+- Public class schedule: `http://localhost:8000/class-schedule/`
+- Public online waiver (after approval and enablement):
+  `http://localhost:8000/online-waiver/`
+- Staff waiver records: `http://localhost:8000/online-waiver/staff/`
 - Website dashboard: `http://localhost:8000/dashboard/`
 - Website administrator login: `http://localhost:8000/staff/login/`
 - Website management: `http://localhost:8000/dashboard/content/`
@@ -60,7 +64,7 @@ After every new installation, and after deployments that add permissions, run:
 ```
 
 In Docker, use `docker compose exec app python manage.py setup_roles`. The
-command idempotently creates and resets three application-owned groups:
+command idempotently creates and resets four application-owned groups:
 
 - **Website Managers** can edit business details, homepage content, pictures,
   programs, events, highlights, social links, and the public Jackrabbit links.
@@ -72,13 +76,19 @@ command idempotently creates and resets three application-owned groups:
   or access Jackrabbit. Assign it only to staff approved for business activity
   reporting. Raw diagnostics and class-feed refresh controls remain
   superuser-only.
+- **Waiver Managers** can view submitted waiver records and download their
+  protected signed PDFs. It does not grant website-content, reporting,
+  Jackrabbit, or general Django-admin access. Because waivers contain minor,
+  guardian, medical, emergency-contact, and signature data, assign this group
+  only to staff whose job requires it.
 
 Use the superuser account to assign each staff account to the appropriate group
 under **Django admin > Users**. Group membership permits the custom dashboard;
 the account only needs Django's `Staff status` if it must also enter raw Django
 admin. The navigation link appears only for a Staff account that is a superuser
-or has at least one raw model permission. Running `setup_roles` again replaces
-the three groups' permissions with the documented least-privilege sets, but
+or has a model permission outside the dashboard-only reporting and waiver
+permissions. Running `setup_roles` again replaces
+the four groups' permissions with the documented least-privilege sets, but
 never creates, edits, or assigns users.
 
 The Django account is only for managing this website. It is not a Jackrabbit
@@ -96,7 +106,8 @@ raw Django admin primarily for user accounts, groups, and password changes.
 Managers use `/dashboard/content/` instead of raw Django admin for normal work:
 
 - **Website details & homepage** controls contact information, external links,
-  SEO text, section copy and visibility, logo, favicon, hero, and section images.
+  SEO text, section copy and visibility, logo, favicon, hero, section images,
+  and whether the Online Waiver navigation link and homepage callout are shown.
 - **Programs**, **Events**, **Homepage highlights**, and **Social links** support
   publishing controls and numeric display order. Programs can be featured as
   homepage cards or shown in the specialty list. Events can include public
@@ -120,6 +131,75 @@ Uploaded files are development data and are ignored by Git. In production they
 live in the persistent Docker volume `media_data`, not in the replaceable app
 container.
 
+## Online waiver workflow
+
+The feature is installed but disabled by default on fresh and upgraded
+deployments pending completion of the privacy, consent, retention, security,
+access, and end-to-end launch checks. After those items are approved, a Website
+Manager opens **Dashboard > Content > Homepage and business details > Online
+waiver**, enters the approved **Privacy URL**, selects **Show online waiver**,
+and saves. The public route fails closed without both values. This enables
+`/online-waiver/` and shows the homepage callout and navigation link.
+
+The public workflow starts at `/online-waiver/`. A parent or legal guardian
+chooses **Regular** or **Camp**, then continues as a **New** or **Returning**
+family. New families enter the gymnast, guardian, emergency, medical, and other
+agreement details required for the selected packet. Returning families locate
+an existing gymnast with exact date of birth, an exact case-insensitive surname
+match, and the last four digits of the parent/guardian phone number. They review
+the matched gymnast, re-enter current guardian/contact, emergency, medical,
+pickup, and enrollment details, and provide a fresh signature. Stored family
+contact, medical, and pickup values are neither displayed nor overwritten by
+this lookup. Lookup and signing POST attempts are centrally rate-limited by a
+one-way client-IP key.
+This is a hardened transitional lookup, not account authentication; the owner
+should consider an OTP, one-time-link, or account-based verification flow in a
+later release.
+
+Each submission freezes the legal text, version and hash; required initials;
+submitted details; signer name and capacity; signing time; and validated
+signature bytes and hash as an immutable signed-agreement snapshot. A validated
+PDF artifact and its hash are also stored immutably in the database. Authorized
+downloads return those exact stored PDF bytes; the document is never
+regenerated. Only a superuser or an account with the waiver
+permission—normally granted through **Waiver Managers**—can browse waiver
+records or download the PDF from the website dashboard or
+`/online-waiver/staff/`.
+
+Signatures and stored PDF artifacts are private database values; they are not
+written to `/media` or the `media_data` volume and have no public media URL.
+Consequently, every database copy and PostgreSQL dump contains complete signed
+PDFs as well as highly sensitive waiver data and must receive the same
+encryption, access control, retention, deletion, and audit treatment as the live
+records.
+
+Production container startup runs `backfill_waiver_pdfs` after migrations and
+before the application opens, creating a validated stored PDF for a legacy
+signed waiver only when its artifact is missing. Existing artifacts are never
+replaced. A technical administrator can run the same idempotent backfill
+manually for a local or upgraded environment:
+
+```powershell
+& .\.venv\Scripts\python.exe manage.py backfill_waiver_pdfs
+```
+
+The client's legal team has approved the exact current Regular and Camp wording.
+The approved baseline is Regular version
+`waiver-system-b44ccb1-mainactivity-regular-v1` (SHA-256
+`e968971a67fc96279ffeaf96f43182e793377dfa1aea3feb621cd25c5c50506c`) and
+Camp version `waiver-system-b44ccb1-mainactivity-camp-v1` (SHA-256
+`587e76773817edcce0f4befb0018a328c82bea2c0b15f9436dc94d4d0668fef6`).
+That text and those version identifiers must remain unchanged. Any text or
+version change requires renewed legal review before release and a new version;
+never modify a signed historical snapshot. This legal approval does not replace
+the privacy notice, consent, retention, security, access, backup, or testing
+gates in the [owner checklist](docs/OWNER_CHECKLIST.md).
+
+To disable public access, a Website Manager clears **Show online waiver** under
+**Dashboard > Content > Homepage and business details > Online waiver**. This
+hides the public navigation link and homepage callout and disables direct access
+at `/online-waiver/`; existing staff-only waiver records remain available.
+
 ## Jackrabbit enrollment and payment workflow
 
 Jackrabbit is the source of truth for class availability, tuition, family and
@@ -131,16 +211,19 @@ reporting. The Django website provides clear links into those hosted workflows:
    details required by Gyminators.
 2. Existing families use the **Parent Portal** to view their account, enroll in
    available programs, manage billing information, and make payments.
-3. The public **Live class schedule** opens Jackrabbit's hosted listings. The
-   private reporting dashboard also caches Jackrabbit's public JSON class feed
-   for searchable schedule, openings, and published-tuition reporting.
+3. The customer-facing **Class Schedule** at `/class-schedule/` renders a
+   read-only cached copy of Jackrabbit's public JSON class feed. Each class's
+   registration action opens that class's Jackrabbit-hosted registration or
+   waitlist page. Jackrabbit's general class-listing URL remains a signed-in
+   manager reference and is not the customer-facing schedule destination.
 4. Owners and managers use the separate **Jackrabbit owner/manager login** for
    transactions, customer records, dashboards, and reports. Instructors use the
    separate **Jackrabbit Staff Portal** for schedules, attendance, and skills.
 
-Managers can update all five destination URLs under **Dashboard > Content >
-Homepage and business details > Jackrabbit links**. Confirm the organization ID
-and test every destination after changing one. Do not place Jackrabbit
+Managers can update the five Jackrabbit reference and workflow URLs under
+**Dashboard > Content > Homepage and business details > Jackrabbit links**.
+Confirm the organization ID and test every destination after changing one. Do
+not place Jackrabbit
 passwords, payment credentials, the Jackrabbit Zapier API key, or card details
 in Django fields or environment variables. The `JACKRABBIT_WEBHOOK_TOKEN`
 described below is a separate secret generated by Gyminators for inbound Zapier
@@ -148,8 +231,9 @@ requests.
 
 Fresh installations show the enrollment section and registration calls to
 action by default for organization `154877`. Do not expose a fresh installation
-to the public until the owner has verified the Online Registration, Parent
-Portal, live schedule, fee posting, policy, and ePayment behavior end to end.
+to the public until the owner has verified Online Registration, Parent Portal,
+the local class calendar and its per-class Jackrabbit destinations, fee posting,
+policy, and ePayment behavior end to end.
 
 Jackrabbit setup references:
 
@@ -188,6 +272,15 @@ Authorized Reporting Managers can use `/dashboard/reporting/` for:
 - the cached public class schedule, openings, waitlist state, and published
   tuition.
 
+The public `/class-schedule/` calendar and the Reporting Manager calendar use
+the same read-only cache. Both display only listings whose published start date
+is in the current calendar year or the next calendar year. Older and
+farther-future feed rows can remain in the raw cache for synchronization
+diagnostics, but they are excluded from calendar results, facets, summary
+counts, and the dashboard preview. Calendar dates are recurrence projections
+from the published weekdays; Jackrabbit remains authoritative for holidays,
+closures, cancellations, and registration availability.
+
 Operational metrics arrive through nine deliberately small Zapier mappings.
 The endpoint is versioned, bearer-token authenticated, size limited,
 idempotent, and rejects fields outside the approved schema. A metric remains
@@ -205,11 +298,26 @@ Payment status, balances, charges,
 refunds, subscriptions, deposits, accounts receivable, and income remain in
 Jackrabbit's Executive Dashboard and financial reports.
 
-The public class feed can be refreshed once with:
+For a host-run development server, the public class feed can be refreshed once
+with:
 
 ```powershell
 & .\.venv\Scripts\python.exe manage.py sync_jackrabbit_classes
 ```
+
+The standalone Docker preview at `http://localhost:8020` uses its own persistent
+SQLite volume rather than the production Compose PostgreSQL database. Refresh
+that preview cache with this one-shot command:
+
+```powershell
+docker exec -e JACKRABBIT_REPORTING_ENABLED=true gyminators-web-8020 python manage.py sync_jackrabbit_classes --organization-id 154877
+```
+
+The environment override applies only to the management process. It does not
+enable reporting or webhook ingestion in the running preview web process; rerun
+the one-shot command when a fresh preview snapshot is needed. Do not use the
+preview container command as a production refresh procedure. Production uses
+the Compose `class-sync` service and PostgreSQL described below.
 
 Use `manage.py check_jackrabbit_reporting` to inspect event coverage and the
 latest class synchronization without showing source identifiers.
@@ -260,8 +368,9 @@ git pull --ff-only
 docker compose up -d --build
 ```
 
-Django migrations run before Gunicorn starts. Use a dedicated migration/release
-step before running more than one app replica. Never run
+Django migrations, the missing legacy-waiver PDF backfill, and role setup run
+before Gunicorn starts. Use a dedicated migration/release step before running
+more than one app replica. Never run
 `docker compose down -v` in production because `-v` deletes persistent volumes.
 
 ### Upgrading a retired Stripe installation
@@ -295,11 +404,12 @@ backups/gyminators-media-TIMESTAMP.tar.gz
 
 The first file is a PostgreSQL custom-format dump; the second contains all
 manager-uploaded pictures. The database dump also contains the minimal
-Jackrabbit-derived event ledger and cached public classes, so it must be treated
-as business-sensitive. Local database and media backups older than 30 days
-are removed. Always copy both matching files to encrypted off-site storage and
-test complete restores regularly. A database dump alone is not a complete
-backup of this application.
+Jackrabbit-derived event ledger, cached public classes, complete waiver records,
+private signatures, and stored signed PDFs. Treat it as highly sensitive. Local
+database and media backups older than 30 days are removed. Always copy both
+matching files to encrypted, access-controlled off-site storage and test
+complete restores regularly. A database dump alone is not a complete backup of
+this application.
 
 Example nightly cron:
 
@@ -352,3 +462,13 @@ Remove-Item Env:DJANGO_DEBUG,Env:DJANGO_SECRET_KEY,Env:DOMAIN,Env:ALLOWED_HOSTS,
 
 Before launch, complete [the owner approval checklist](docs/OWNER_CHECKLIST.md).
 The live-site comparison is recorded in [the content audit](docs/CONTENT_AUDIT.md).
+
+## Online waiver source attribution
+
+The Regular/Camp and New/Returning workflow was adapted from
+[deni336/Waiver_system at inspected commit `b44ccb1`](https://github.com/deni336/Waiver_system/tree/b44ccb132f0fe6cbd46f5ffa0aff697f183b89aa),
+which is provided under the MIT License, Copyright (c) 2026 deni336. The
+repository's [LICENSE](LICENSE) retains that notice. Its source agreement
+wording is the legally approved, locked baseline identified above. Any text or
+version change requires renewed legal review before use. Retain the attribution
+and license notice when this feature is redistributed.

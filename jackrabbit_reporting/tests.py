@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import timedelta
+from datetime import date, timedelta
 from io import StringIO
 from unittest.mock import patch
 
@@ -42,6 +42,7 @@ class FakeResponse:
 
 
 def class_row(class_id=18541238, name="Preschool Gymnastics", openings=3, tuition=85.00):
+    current_year = timezone.localdate().year
     return {
         "id": class_id,
         "category1": "PreSchool",
@@ -62,10 +63,10 @@ def class_row(class_id=18541238, name="Preschool Gymnastics", openings=3, tuitio
         "name": name,
         "online_reg_link": f"https://app.jackrabbitclass.com/reg.asp?id=154877&amp;WL=0&amp;preLoadClassID={class_id}",
         "openings": {"calculated_openings": openings, "days": {"mon": 0, "tue": 0, "wed": 0, "thu": 0, "fri": 0, "sat": openings, "sun": 0}},
-        "reg_start_date": "2014-04-01",
+        "reg_start_date": f"{current_year}-04-01",
         "room": "Blue Gym",
         "session": "50 Minutes",
-        "start_date": "2014-06-01",
+        "start_date": f"{current_year}-06-01",
         "start_time": "11:30",
         "waitlist": openings <= 0,
         "location_addr1": "4603 Shirley Ave",
@@ -233,13 +234,24 @@ class ClassFeedTests(TestCase):
         self.assertEqual(saved.meeting_days_display, "Sat")
         self.assertEqual(saved.time_display, "11:30 AM–12:20 PM")
         self.assertEqual(saved.age_display, "3 yr 6 mo–5 yr")
-        self.assertEqual(saved.date_display, "Jun 1, 2014")
+        self.assertEqual(saved.date_display, f"Jun 1, {timezone.localdate().year}")
         self.assertEqual(saved.tuition_display, "$85.00")
         self.assertEqual(str(saved.tuition), "85.00")
         self.assertEqual(saved.billing_cycle, "Monthly")
         self.assertIsNone(saved.end_date)
         self.assertIn("&WL=0&preLoadClassID=18541238", saved.online_registration_url)
         self.assertEqual(saved.availability_label, "3 open")
+
+    def test_historical_feed_dates_are_stored_but_excluded_from_schedule_counts(self):
+        historical_year = timezone.localdate().year - 10
+        row = class_row()
+        row["reg_start_date"] = f"{historical_year}-04-01"
+        row["start_date"] = f"{historical_year}-06-01"
+        sync_classes(opener=self.opener({"success": True, "rows": [row]}))
+        saved = JackrabbitClass.objects.get()
+        self.assertEqual(saved.start_date.year, historical_year)
+        self.assertTrue(saved.is_current)
+        self.assertEqual(class_reporting_summary()["count"], 0)
 
     def test_repeat_sync_updates_changed_rows_and_deactivates_missing_rows(self):
         initial = [class_row(), class_row(18541239, "Second class", 0, 95)]
@@ -388,6 +400,25 @@ class ReportingDashboardTests(TestCase):
             **ids,
         )
 
+    def add_calendar_class(self, external_id, name, **overrides):
+        today = timezone.localdate()
+        values = {
+            "organization_id": "154877",
+            "external_id": external_id,
+            "name": name,
+            "category1": "Recreation",
+            "location_code": "GG",
+            "location_name": "Main Gym",
+            "start_date": date(today.year, 1, 1),
+            "end_date": date(today.year, 12, 31),
+            "start_time": "09:00",
+            "end_time": "09:50",
+            "meeting_days": {"mon": True},
+            "calculated_openings": 4,
+        }
+        values.update(overrides)
+        return JackrabbitClass.objects.create(**values)
+
     def test_reporting_permission_is_separate_from_content_management(self):
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 200)
         reporting_response = self.client.get(reverse("jackrabbit_reporting:dashboard"))
@@ -527,6 +558,7 @@ class ReportingDashboardTests(TestCase):
             calculated_openings=4,
             tuition="85.00",
             online_registration_url="https://app.jackrabbitclass.com/reg.asp?id=154877",
+            start_date=timezone.localdate().replace(month=1, day=1),
         )
         response = self.client.get(reverse("jackrabbit_reporting:classes"), {"q": "Beginner", "availability": "open"})
         self.assertEqual(response.status_code, 200)
@@ -538,11 +570,252 @@ class ReportingDashboardTests(TestCase):
         self.assertNotContains(response, '<script>alert("class")</script>')
         self.assertContains(response, "&lt;script&gt;")
 
+    def test_class_calendar_is_limited_to_current_and_next_year(self):
+        today = timezone.localdate()
+        self.add_calendar_class("current", "Current year class")
+        self.add_calendar_class(
+            "next",
+            "Next year class",
+            start_date=date(today.year + 1, 1, 1),
+            end_date=date(today.year + 1, 12, 31),
+        )
+        self.add_calendar_class(
+            "expired",
+            "Expired legacy class",
+            start_date=date(today.year - 10, 1, 1),
+            end_date=date(today.year - 10, 12, 31),
+        )
+        self.add_calendar_class(
+            "future",
+            "Beyond next year class",
+            start_date=date(today.year + 2, 1, 1),
+            end_date=date(today.year + 2, 12, 31),
+        )
+        self.add_calendar_class(
+            "prior-spanning",
+            "Prior-year spanning class",
+            start_date=date(today.year - 1, 12, 1),
+            end_date=date(today.year, 2, 1),
+        )
+        self.add_calendar_class(
+            "prior-ongoing",
+            "Prior-year ongoing class",
+            start_date=date(today.year - 1, 12, 1),
+            end_date=None,
+        )
+
+        current_response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year}-{today.month:02d}"},
+        )
+        self.assertContains(current_response, "Current year class")
+        self.assertNotContains(current_response, "Expired legacy class")
+        self.assertNotContains(current_response, "Beyond next year class")
+        self.assertNotContains(current_response, "Prior-year spanning class")
+        self.assertNotContains(current_response, "Prior-year ongoing class")
+        self.assertEqual(current_response.context["schedule_year_start"], today.year)
+        self.assertEqual(current_response.context["schedule_year_end"], today.year + 1)
+        self.assertEqual(len(current_response.context["month_groups"]), 2)
+        self.assertEqual(class_reporting_summary()["count"], 2)
+
+        next_response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year + 1}-{today.month:02d}"},
+        )
+        self.assertContains(next_response, "Next year class")
+        self.assertNotContains(next_response, "Expired legacy class")
+
+    def test_class_calendar_projects_recurring_days_and_day_specific_openings(self):
+        today = timezone.localdate()
+        self.add_calendar_class(
+            "multi-day",
+            "Monday and Wednesday Gymnastics",
+            start_date=date(today.year, today.month, 1),
+            end_date=date(today.year, today.month, 28),
+            meeting_days={"mon": True, "wed": True},
+            is_per_day=True,
+            openings_by_day={"mon": 0, "wed": 3},
+        )
+        response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {
+                "month": f"{today.year}-{today.month:02d}",
+                "day": "wed",
+            },
+        )
+        occurrences = [
+            occurrence
+            for cell in response.context["calendar_cells"]
+            for occurrence in cell["occurrences"]
+        ]
+        self.assertTrue(occurrences)
+        self.assertTrue(all(item["day_key"] == "wed" for item in occurrences))
+        self.assertTrue(all(item["availability_label"] == "3 open" for item in occurrences))
+        self.assertContains(response, "Monday and Wednesday Gymnastics")
+        self.assertContains(response, "Monthly class calendar")
+        self.assertContains(response, "Times shown in America/New_York")
+        self.assertNotContains(response, ">Full<")
+
+        monday_full_response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {
+                "month": f"{today.year}-{today.month:02d}",
+                "day": "mon",
+                "availability": "waitlist",
+            },
+        )
+        self.assertContains(monday_full_response, "Monday and Wednesday Gymnastics")
+        self.assertContains(monday_full_response, ">Full<", html=False)
+
+        monday_open_response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {
+                "month": f"{today.year}-{today.month:02d}",
+                "day": "mon",
+                "availability": "open",
+            },
+        )
+        self.assertNotContains(monday_open_response, "Monday and Wednesday Gymnastics")
+
+        all_open_response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {
+                "month": f"{today.year}-{today.month:02d}",
+                "availability": "open",
+            },
+        )
+        open_occurrences = [
+            occurrence
+            for cell in all_open_response.context["calendar_cells"]
+            for occurrence in cell["occurrences"]
+        ]
+        self.assertTrue(open_occurrences)
+        self.assertTrue(all(item["day_key"] == "wed" for item in open_occurrences))
+
+        all_full_response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {
+                "month": f"{today.year}-{today.month:02d}",
+                "availability": "waitlist",
+            },
+        )
+        full_occurrences = [
+            occurrence
+            for cell in all_full_response.context["calendar_cells"]
+            for occurrence in cell["occurrences"]
+        ]
+        self.assertTrue(full_occurrences)
+        self.assertTrue(all(item["day_key"] == "mon" for item in full_occurrences))
+
+    @patch("jackrabbit_reporting.views.MAX_CALENDAR_CLASSES", 1)
+    def test_large_calendar_is_capped_with_an_explicit_warning(self):
+        today = timezone.localdate()
+        self.add_calendar_class("alpha", "Alpha class")
+        self.add_calendar_class("beta", "Beta class")
+        response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year}-{today.month:02d}"},
+        )
+        self.assertTrue(response.context["calendar_truncated"])
+        self.assertEqual(response.context["candidate_class_count"], 2)
+        self.assertContains(response, "Calendar shortened for readability")
+        self.assertContains(response, "Alpha class")
+        self.assertNotContains(response, "Beta class")
+
+    @patch("jackrabbit_reporting.views.MAX_CALENDAR_OCCURRENCES", 1)
+    def test_calendar_occurrence_cap_is_reported(self):
+        today = timezone.localdate()
+        self.add_calendar_class("recurring", "Recurring class")
+        response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year}-{today.month:02d}"},
+        )
+        self.assertEqual(response.context["calendar_occurrence_count"], 1)
+        self.assertTrue(response.context["calendar_truncated"])
+        self.assertContains(response, "Calendar shortened for readability")
+
+    def test_class_without_a_meeting_day_is_kept_outside_calendar_dates(self):
+        today = timezone.localdate()
+        self.add_calendar_class(
+            "unscheduled",
+            "Day to be confirmed",
+            start_date=date(today.year, today.month, 1),
+            end_date=date(today.year, today.month, 28),
+            meeting_days={},
+        )
+        response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year}-{today.month:02d}"},
+        )
+        self.assertEqual(response.context["calendar_occurrence_count"], 0)
+        self.assertEqual(len(response.context["calendar_unscheduled"]), 1)
+        self.assertContains(response, "Meeting day not listed")
+        self.assertContains(response, "Day to be confirmed")
+
+    def test_out_of_range_calendar_month_falls_back_to_the_current_month(self):
+        today = timezone.localdate()
+        response = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year + 3}-01"},
+        )
+        self.assertEqual(
+            response.context["selected_month"],
+            date(today.year, today.month, 1),
+        )
+
+    def test_calendar_navigation_stops_at_the_two_year_boundaries(self):
+        today = timezone.localdate()
+        first = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year}-01"},
+        )
+        last = self.client.get(
+            reverse("jackrabbit_reporting:classes"),
+            {"month": f"{today.year + 1}-12"},
+        )
+        self.assertEqual(first.context["previous_month_url"], "")
+        self.assertTrue(first.context["next_month_url"])
+        self.assertEqual(last.context["next_month_url"], "")
+        self.assertTrue(last.context["previous_month_url"])
+
+    def test_out_of_window_pending_confirmation_still_warns_about_feed_health(self):
+        today = timezone.localdate()
+        self.add_calendar_class(
+            "old-pending",
+            "Old pending class",
+            start_date=date(today.year - 2, 1, 1),
+            end_date=date(today.year - 2, 12, 31),
+            missed_syncs=1,
+        )
+        summary = class_reporting_summary()
+        self.assertEqual(summary["count"], 0)
+        self.assertEqual(summary["pending_confirmation"], 1)
+
+    def test_dashboard_clips_a_class_end_date_to_next_year(self):
+        today = timezone.localdate()
+        beyond_year = today.year + 3
+        self.add_calendar_class(
+            "long-running",
+            "Long-running class",
+            start_date=date(today.year, 1, 1),
+            end_date=date(beyond_year, 12, 31),
+        )
+        ClassSyncRun.objects.create(
+            organization_id="154877",
+            status=ClassSyncRun.SUCCESS,
+            finished_at=timezone.now(),
+        )
+        response = self.client.get(reverse("jackrabbit_reporting:dashboard"))
+        self.assertContains(response, "Long-running class")
+        self.assertContains(response, str(today.year + 1))
+        self.assertNotContains(response, str(beyond_year))
+
     def test_class_availability_summary_and_filters_use_the_same_states(self):
         shared = {
             "organization_id": "154877",
             "category1": "Availability test",
             "is_current": True,
+            "start_date": timezone.localdate().replace(month=1, day=1),
         }
         JackrabbitClass.objects.create(
             **shared,

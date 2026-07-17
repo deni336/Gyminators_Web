@@ -6,6 +6,11 @@ from django.utils import timezone
 
 from jackrabbit_reporting.models import ClassSyncRun, JackrabbitClass, JackrabbitEvent
 from jackrabbit_reporting.security import usable_webhook_token
+from jackrabbit_reporting.services.schedule import (
+    schedule_classes,
+    schedule_scope_display,
+    schedule_window,
+)
 
 
 PERIOD_CHOICES = {7: "7 days", 30: "30 days", 90: "90 days", 365: "12 months"}
@@ -253,6 +258,8 @@ def _trend(events, period_days, series, start, end):
 
 def class_reporting_summary(now=None):
     now = now or timezone.now()
+    today = timezone.localdate(now)
+    window_start, window_end = schedule_window(today)
     organization_id = str(settings.JACKRABBIT_ORG_ID).strip()
     organization_runs = ClassSyncRun.objects.filter(organization_id=organization_id)
     successful_sync = organization_runs.filter(status=ClassSyncRun.SUCCESS).first()
@@ -266,10 +273,11 @@ def class_reporting_summary(now=None):
         and latest_sync.status == ClassSyncRun.FAILED
         and (not successful_sync or latest_sync.started_at > successful_sync.started_at)
     )
-    classes = JackrabbitClass.objects.filter(
+    current_classes = JackrabbitClass.objects.filter(
         organization_id=organization_id,
         is_current=True,
     )
+    classes = schedule_classes(current_classes, today)
     class_objects = list(
         classes.only(
             "id",
@@ -292,7 +300,9 @@ def class_reporting_summary(now=None):
             class_record.tuition is not None or bool(class_record.tuition_by_day)
             for class_record in class_objects
         ),
-        "pending_confirmation": classes.filter(missed_syncs__gt=0).count(),
+        "schedule_year_start": window_start.year,
+        "schedule_year_end": window_end.year,
+        "pending_confirmation": current_classes.filter(missed_syncs__gt=0).count(),
         "last_success": successful_sync.finished_at if successful_sync else None,
         "last_run": latest_sync,
         "stale": stale,
@@ -364,11 +374,20 @@ def dashboard_data(period_days=30):
         )
 
     organization_id = str(settings.JACKRABBIT_ORG_ID).strip()
-    classes = JackrabbitClass.objects.filter(
-        organization_id=organization_id,
-        is_current=True,
+    classes = schedule_classes(
+        JackrabbitClass.objects.filter(
+            organization_id=organization_id,
+            is_current=True,
+        ),
+        timezone.localdate(now),
     )
     class_summary = class_reporting_summary(now)
+    class_preview = list(classes.order_by("start_time", "name", "pk")[:8])
+    for class_record in class_preview:
+        class_record.schedule_scope_display = schedule_scope_display(
+            class_record,
+            timezone.localdate(now),
+        )
 
     overall = reporting_events.aggregate(
         first_event=Min("occurred_at"),
@@ -417,5 +436,5 @@ def dashboard_data(period_days=30):
         ),
         "reporting_enabled": settings.JACKRABBIT_REPORTING_ENABLED,
         "class_summary": class_summary,
-        "class_preview": classes.order_by("category1", "name", "start_time")[:8],
+        "class_preview": class_preview,
     }

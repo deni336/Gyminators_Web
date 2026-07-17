@@ -100,6 +100,14 @@ class SiteConfiguration(models.Model):
     payment_existing_body = models.TextField(default="Use the Parent Portal to view your balance, make payments, manage billing information, and enroll in available programs.")
     payment_existing_button = models.CharField(max_length=80, default="Open Parent Portal")
     show_payments = models.BooleanField(default=True)
+    show_online_waiver = models.BooleanField(
+        default=False,
+        help_text=(
+            "The current Regular and Camp wording is legally approved and must remain unchanged; "
+            "any text or version change requires renewed legal review. Add the approved privacy "
+            "policy URL and complete the retention and security checks before enabling."
+        ),
+    )
 
     programs_eyebrow = models.CharField(max_length=120, default="Find their fit")
     programs_heading = models.CharField(max_length=160, default="Programs that grow with your child.")
@@ -125,7 +133,10 @@ class SiteConfiguration(models.Model):
     show_trial = models.BooleanField(default=True)
     footer_body = models.TextField(default="Helping Jacksonville kids grow stronger, braver, and more confident through movement.")
     footer_credentials = models.CharField(max_length=200, default="USA Gymnastics & AAU Member • Jacksonville, Florida")
-    privacy_url = models.URLField(blank=True, help_text="Optional link to the approved privacy policy.")
+    privacy_url = models.URLField(
+        blank=True,
+        help_text="Required before the public online-waiver workflow can be enabled.",
+    )
     terms_url = models.URLField(blank=True, help_text="Optional link to the approved website or payment terms.")
     cancellation_url = models.URLField(blank=True, help_text="Optional link to the approved cancellation and refund policy.")
     updated_at = models.DateTimeField(auto_now=True)
@@ -138,6 +149,22 @@ class SiteConfiguration(models.Model):
     @classmethod
     def get_solo(cls):
         return cls.objects.first() or cls()
+
+    @property
+    def online_waiver_available(self):
+        """Expose the public flow only when its required privacy notice exists."""
+        return self.show_online_waiver and bool(self.privacy_url)
+
+    def clean(self):
+        super().clean()
+        if self.show_online_waiver and not self.privacy_url:
+            raise ValidationError(
+                {
+                    "privacy_url": (
+                        "Add the approved privacy policy URL before enabling the online waiver."
+                    )
+                }
+            )
 
     def save(self, *args, **kwargs):
         self.pk = 1

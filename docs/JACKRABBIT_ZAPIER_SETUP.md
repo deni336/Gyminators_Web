@@ -265,6 +265,16 @@ The class schedule, openings, waitlist/full state, and published tuition come
 from Jackrabbit's public class feed. This is independent of the nine event Zaps
 and does not use the inbound token.
 
+The public `/class-schedule/` page and the private reporting screen project the
+feed's recurring weekdays onto monthly calendars. They display only listings
+whose published start date is in the current or next calendar year; older and
+farther-future rows can remain in the raw cache but are excluded from calendars,
+facets, summary counts, and the dashboard preview. Each public class action uses
+that class's Jackrabbit-hosted registration or waitlist link. The configured
+general Jackrabbit listing is a signed-in manager reference, not the
+customer-facing schedule. Projected dates do not encode holidays, closures, or
+cancellations, so Jackrabbit remains authoritative.
+
 Production's `class-sync` service refreshes the cache about every 15 minutes.
 For a one-time refresh or status check:
 
@@ -272,6 +282,19 @@ For a one-time refresh or status check:
 docker compose exec app python manage.py sync_jackrabbit_classes
 docker compose exec app python manage.py check_jackrabbit_reporting
 ```
+
+The standalone preview at `http://localhost:8020` is not this Compose stack. It
+uses a persistent SQLite volume and has reporting disabled in its running web
+process. Populate or refresh only that preview cache with:
+
+```powershell
+docker exec -e JACKRABBIT_REPORTING_ENABLED=true gyminators-web-8020 python manage.py sync_jackrabbit_classes --organization-id 154877
+```
+
+The environment override applies only to the one-shot management process. It
+does not enable the preview web process or its webhook ingestion endpoint. Rerun
+the command when a new preview snapshot is needed; continue using the Compose
+worker and PostgreSQL commands above in production.
 
 A failed or malformed feed never retires the last successful class copy. The
 first valid feed that omits a cached class leaves it visible with a warning; a

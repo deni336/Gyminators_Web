@@ -1,0 +1,19 @@
+{% extends "waivers/base.html" %}
+{% block title %}Waiver {{ waiver.pk }}{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="{% url 'waivers:staff_list' %}">Waiver records</a><span>/</span><span>Detail</span></nav>
+<header class="hero-card"><p class="eyebrow">Immutable signed record</p><h1>{{ waiver.get_enrollment_type_display }} waiver</h1><p><code>{{ waiver.pk }}</code></p>{% if pdf_artifact %}<a class="button button--primary" href="{% url 'waivers:staff_pdf' waiver.pk %}">Download PDF</a>{% else %}<p>The stored PDF is not available. Run the legacy PDF backfill before downloading.</p>{% endif %}</header>
+{% if pdf_artifact %}
+<section class="form-card">
+  <h2>Stored PDF artifact</h2>
+  <dl class="record-grid">
+    <dt>Generated</dt><dd>{{ pdf_artifact.created_at|date:"M j, Y g:i:s a T" }}</dd>
+    <dt>PDF SHA-256</dt><dd><code>{{ pdf_artifact.pdf_sha256 }}</code></dd>
+  </dl>
+</section>
+{% endif %}
+<section class="form-card"><h2>Signing record</h2><dl class="record-grid"><dt>Signed</dt><dd>{{ waiver.signed_at|date:"c" }}</dd><dt>Gymnast status</dt><dd>{{ waiver.get_participant_status_display }}</dd><dt>Signer</dt><dd>{{ waiver.typed_signer_name }}</dd><dt>Capacity</dt><dd>{{ waiver.get_signer_capacity_display }}</dd><dt>Pickup verified</dt><dd>{{ waiver.pickup_verified|yesno:"Yes,No" }}</dd><dt>Agreement accepted</dt><dd>{{ waiver.agreement_accepted|yesno:"Yes,No" }}</dd><dt>Agreement version</dt><dd>{{ waiver.agreement_version }}</dd><dt>Agreement SHA-256</dt><dd><code>{{ waiver.agreement_sha256 }}</code></dd><dt>Signature SHA-256</dt><dd><code>{{ waiver.signature_sha256 }}</code></dd></dl></section>
+<section class="form-card"><h2>Submitted snapshot</h2><dl class="record-grid">{% for label, value in snapshot_rows %}<dt>{{ label }}</dt><dd>{% if value is None or value == '' %}<span class="muted">Not provided</span>{% else %}{{ value|linebreaksbr }}{% endif %}</dd>{% endfor %}</dl></section>
+<section class="form-card"><h2>Clause initials</h2><dl class="record-grid">{% for number, initials in waiver.initials.items %}<dt>Clause {{ number }}</dt><dd>{{ initials }}</dd>{% endfor %}</dl></section>
+<section class="form-card legal-section"><h2>Exact agreement snapshot</h2><div class="legal-copy">{{ waiver.legal_text_snapshot|linebreaks }}</div></section>
+{% endblock %}

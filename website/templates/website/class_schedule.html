@@ -1,0 +1,84 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Class Schedule | {{ site.gym_name }}</title>
+  <meta name="description" content="Browse Gyminators Gymnastics classes by month, day, age, location, and availability.">
+  <meta property="og:title" content="Class Schedule | {{ site.gym_name }}">
+  <meta property="og:description" content="Find a Gyminators class that fits your family's week.">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="{{ request.scheme }}://{{ request.get_host }}{% url 'class_schedule' %}">
+  <link rel="icon" href="{% if site.favicon %}{{ site.favicon.url }}{% elif site.logo %}{{ site.logo.url }}{% else %}{% static 'images/logo.png' %}{% endif %}">
+  <link rel="stylesheet" href="{% static 'site.css' %}">
+  <link rel="stylesheet" href="{% static 'class_schedule.css' %}">
+  <script src="{% static 'site.js' %}" defer></script>
+</head>
+<body class="publicSchedulePage">
+<a class="skipLink" href="#main-content">Skip to main content</a>
+<div class="topbar"><span>✦ {{ site.announcement }}</span><span class="toplinks"><a href="{{ site.phone_link }}">☎ {{ site.phone }}</a><a href="{{ site.portal_url }}">Parent Portal →</a></span></div>
+<header class="scheduleSiteHeader">
+  <a href="{% url 'home' %}" class="brand">{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}</a>
+  <nav aria-label="Primary navigation">{% if site.show_programs %}<a href="{% url 'home' %}#programs">Programs</a>{% endif %}<a href="{% url 'class_schedule' %}" aria-current="page">Class Schedule</a>{% if site.show_payments %}<a href="{% url 'home' %}#memberships">Enroll &amp; Pay</a>{% endif %}{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}">Online Waiver</a>{% endif %}{% if site.show_events %}<a href="{% url 'home' %}#events">Camps &amp; Events</a>{% endif %}<a href="#contact">Contact</a></nav>
+  {% if site.header_button_text %}<a class="button small" href="{{ site.registration_url }}" target="_blank" rel="noopener noreferrer">{{ site.header_button_text }} →</a>{% endif %}
+  <button class="menub" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-navigation">☰</button>
+</header>
+<div class="mobileNav" id="mobile-navigation">{% if site.show_programs %}<a href="{% url 'home' %}#programs">Programs</a>{% endif %}<a href="{% url 'class_schedule' %}" aria-current="page">Class Schedule</a>{% if site.show_payments %}<a href="{% url 'home' %}#memberships">Enroll &amp; Pay</a>{% endif %}{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}">Online Waiver</a>{% endif %}{% if site.show_events %}<a href="{% url 'home' %}#events">Camps &amp; Events</a>{% endif %}<a href="#contact">Contact</a></div>
+
+<main id="main-content" class="publicScheduleMain">
+  <section class="publicScheduleHero">
+    <div><div class="eyebrow light">Live class calendar</div><h1>Find a class that <em>fits.</em></h1><p>Explore recurring gymnastics classes, times, ages, tuition, and current openings without leaving the Gyminators website.</p></div>
+    <div class="publicScheduleScope"><span>Showing</span><b>{{ schedule_year_start }}–{{ schedule_year_end }}</b><small>Current year + next year</small></div>
+  </section>
+
+  {% if calendar_is_stale %}<div class="publicScheduleNotice isWarning" role="status"><strong>Please verify before registering.</strong> {% if calendar_last_updated %}The schedule was last updated {{ calendar_last_updated|date:"M j, Y g:i A" }} and may have changed.{% else %}This schedule is being refreshed and class details may have changed.{% endif %} Each class card opens its current registration page.</div>{% elif calendar_last_updated %}<div class="publicScheduleNotice" role="status"><strong>Current schedule snapshot.</strong> Updated {{ calendar_last_updated|date:"M j, Y g:i A" }}. Availability can change during registration.</div>{% endif %}
+
+  <form class="publicScheduleFilters" method="get" aria-label="Filter class calendar">
+    <div><label for="public-class-month">Month</label><select id="public-class-month" name="month">{% for group in month_groups %}<optgroup label="{{ group.year }}">{% for option in group.months %}<option value="{{ option.value }}"{% if option.value == selected_month_value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+    <div class="isWide"><label for="public-class-search">Search</label><input id="public-class-search" name="q" value="{{ query }}" placeholder="Class name or category"></div>
+    <div><label for="public-class-category">Program</label><select id="public-class-category" name="category"><option value="">All programs</option>{% for option in categories %}<option value="{{ option }}"{% if option == selected_category %} selected{% endif %}>{{ option }}</option>{% endfor %}</select></div>
+    <div><label for="public-class-day">Day</label><select id="public-class-day" name="day"><option value="">Any day</option>{% for value, label in day_choices %}<option value="{{ value }}"{% if value == selected_day %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+    <div><label for="public-class-location">Location</label><select id="public-class-location" name="location"><option value="">All locations</option>{% for code, name in locations %}<option value="{{ code }}"{% if code == selected_location %} selected{% endif %}>{{ name|default:code }}</option>{% endfor %}</select></div>
+    <div><label for="public-class-session">Session</label><select id="public-class-session" name="session"><option value="">Any session</option>{% for option in sessions %}<option value="{{ option }}"{% if option == selected_session %} selected{% endif %}>{{ option }}</option>{% endfor %}</select></div>
+    <div><label for="public-class-availability">Availability</label><select id="public-class-availability" name="availability"><option value="">All classes</option><option value="open"{% if selected_availability == "open" %} selected{% endif %}>Has openings</option><option value="waitlist"{% if selected_availability == "waitlist" %} selected{% endif %}>Waitlist or full</option></select></div>
+    <div class="publicFilterActions"><button class="button" type="submit">Update calendar</button><a href="{% url 'class_schedule' %}">Clear filters</a></div>
+  </form>
+
+  {% if calendar_total_count or calendar_snapshot_available %}
+    <section class="publicCalendar" aria-labelledby="public-calendar-heading">
+      <div class="publicCalendarToolbar">
+        {% if previous_month_url %}<a href="{{ previous_month_url }}" aria-label="Previous month">← Previous</a>{% else %}<span aria-hidden="true">← Previous</span>{% endif %}
+        <div><small>Class calendar</small><h2 id="public-calendar-heading">{{ selected_month|date:"F Y" }}</h2><p><b>{{ class_count }}</b> class{{ class_count|pluralize:"es" }} · <b>{{ calendar_occurrence_count }}</b> meeting{{ calendar_occurrence_count|pluralize }} · {{ schedule_timezone }}</p></div>
+        {% if next_month_url %}<a href="{{ next_month_url }}" aria-label="Next month">Next →</a>{% else %}<span aria-hidden="true">Next →</span>{% endif %}
+      </div>
+      <p class="publicProjection"><strong>A quick heads-up:</strong> Dates are projected from recurring weekdays. Holidays, closures, cancellations, and makeup classes may not appear.</p>
+      {% if calendar_truncated %}<p class="publicCalendarLimit" role="status"><strong>Lots of matches!</strong> Narrow the filters to see the classes omitted from this view.</p>{% endif %}
+      <div class="publicCalendarWeekdays" aria-hidden="true"><span>Monday</span><span>Tuesday</span><span>Wednesday</span><span>Thursday</span><span>Friday</span><span>Saturday</span><span>Sunday</span></div>
+      <ol class="publicCalendarGrid" aria-label="{{ selected_month|date:'F Y' }} class calendar">
+        {% for cell in calendar_cells %}<li class="publicCalendarDay{% if not cell.in_month %} isOutside{% elif not cell.occurrences %} isEmpty{% endif %}{% if cell.is_today %} isToday{% endif %}"{% if not cell.in_month %} aria-hidden="true"{% endif %}>
+          {% if cell.in_month %}<div class="publicCalendarDate"><h3><time datetime="{{ cell.date|date:'Y-m-d' }}" aria-label="{{ cell.date|date:'l, F j, Y' }}"><span class="desktopDate">{{ cell.date.day }}</span><span class="mobileDate">{{ cell.date|date:"l, F j" }}</span></time></h3>{% if cell.is_today %}<b>Today</b>{% endif %}</div>
+          {% if cell.occurrences %}<ol class="publicClassEvents">{% for occurrence in cell.occurrences %}{% with class=occurrence.class_record %}<li><article class="publicClassCard" aria-labelledby="public-class-{{ cell.date|date:'Ymd' }}-{{ forloop.counter }}">
+            <div class="publicClassTop"><strong>{{ class.time_display }}</strong><span class="publicAvailability{% if occurrence.availability_state == 'warning' %} isWarning{% elif occurrence.availability_state == 'neutral' %} isNeutral{% endif %}">{{ occurrence.availability_label }}</span></div>
+            <h4 id="public-class-{{ cell.date|date:'Ymd' }}-{{ forloop.counter }}">{{ class.name }}</h4>
+            <p class="publicClassMeta">{{ class.age_display }}{% if class.location_name or class.location_code %} · {{ class.location_name|default:class.location_code }}{% endif %}{% if class.room %} · {{ class.room }}{% endif %}</p>
+            <p class="publicClassPrice">{{ class.tuition_display }}{% if class.billing_cycle %} <span>{{ class.billing_cycle }}</span>{% endif %}</p>
+            {% if class.online_registration_url %}<a class="publicRegister" href="{{ class.online_registration_url }}" target="_blank" rel="noopener noreferrer" aria-label="Register for {{ class.name }} on {{ cell.date|date:'F j, Y' }} in a new tab">View registration <span aria-hidden="true">↗</span></a>{% else %}<a class="publicRegister" href="{{ site.phone_link }}" aria-label="Call about {{ class.name }} on {{ cell.date|date:'F j, Y' }}">Call about this class</a>{% endif %}
+            <details><summary>More details<span class="srOnly"> for {{ class.name }} on {{ cell.date|date:"F j, Y" }}</span></summary><dl><div><dt>Program</dt><dd>{{ class.category1|default:"Not listed" }}{% if class.category2 %} · {{ class.category2 }}{% endif %}</dd></div><div><dt>Instructor</dt><dd>{{ class.instructors|join:", "|default:"To be announced" }}</dd></div>{% if class.session %}<div><dt>Session</dt><dd>{{ class.session }}</dd></div>{% endif %}<div><dt>Schedule</dt><dd>{{ occurrence.scope_display }}</dd></div></dl></details>
+          </article></li>{% endwith %}{% endfor %}</ol>{% endif %}{% endif %}
+        </li>{% endfor %}
+      </ol>
+      {% if not class_count %}<div class="publicCalendarEmpty"><strong>No classes match this month and these filters.</strong><p>Try another month, clear a filter, or call us at <a href="{{ site.phone_link }}">{{ site.phone }}</a>.</p></div>{% elif not calendar_occurrence_count %}<div class="publicCalendarEmpty"><strong>No dated meetings are listed for these matches.</strong><p>See the schedule-to-be-confirmed options below, or call us at <a href="{{ site.phone_link }}">{{ site.phone }}</a>.</p></div>{% endif %}
+    </section>
+
+    {% if calendar_unscheduled %}<section class="publicUnscheduled" aria-labelledby="public-unscheduled-heading"><div><div class="eyebrow purple">More options</div><h2 id="public-unscheduled-heading">Schedule to be confirmed</h2><p>These current listings do not include a recurring weekday yet. Contact us and we&rsquo;ll help with the latest details.</p></div><ul>{% for item in calendar_unscheduled %}{% with class=item.class_record %}<li><div><b>{{ class.name }}</b><span>{{ class.age_display }} · {{ class.time_display }}</span></div><span class="publicAvailability{% if class.availability_state == 'warning' %} isWarning{% elif class.availability_state == 'neutral' %} isNeutral{% endif %}">{{ class.availability_label }}</span><a href="{{ class.online_registration_url|default:site.phone_link }}"{% if class.online_registration_url %} target="_blank" rel="noopener noreferrer"{% endif %}>View details →</a></li>{% endwith %}{% endfor %}</ul></section>{% endif %}
+  {% else %}
+    <section class="publicScheduleUnavailable"><div class="eyebrow purple">Schedule update in progress</div><h2>Let&rsquo;s find the right class together.</h2><p>Our online calendar is being refreshed. Call us for current times and openings, or start registration and our team will help confirm the best fit.</p><div><a class="button" href="{{ site.phone_link }}">Call {{ site.phone }}</a><a class="button secondaryButton" href="{{ site.registration_url }}" target="_blank" rel="noopener noreferrer">Start registration ↗</a></div></section>
+  {% endif %}
+
+  <section class="publicScheduleCta"><div><div class="eyebrow light">Ready when they are</div><h2>Found a class—or need a hand?</h2><p>Openings move quickly. Register from a class card, or call and we&rsquo;ll help match age, experience, and schedule.</p></div><div><a class="whiteBtn" href="{{ site.phone_link }}">Call {{ site.phone }}</a>{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}">Complete the online waiver →</a>{% endif %}</div></section>
+</main>
+
+<footer id="contact"><div class="footerTop"><div>{% if site.logo %}<img src="{{ site.logo.url }}" width="{{ site.logo.width }}" height="{{ site.logo.height }}" alt="{{ site.logo_alt }}">{% else %}<img src="{% static 'images/logo.png' %}" width="172" height="150" alt="{{ site.logo_alt }}">{% endif %}<p>{{ site.footer_body }}</p><div class="socialLinks">{% for link in social_links %}<a href="{{ link.url }}">{{ link.label }}</a>{% endfor %}</div></div><div><p class="footerHeading">Visit us</p><p><a href="{{ site.map_url }}">{{ site.street_address }}<br>{{ site.city_state_zip }}</a></p><p>{{ site.hours_note }}</p></div><div><p class="footerHeading">Let&rsquo;s talk</p><a href="{{ site.phone_link }}" class="bigPhone">{{ site.phone }}</a><a href="mailto:{{ site.email }}" class="footerLink">{{ site.email }}</a><a href="{% url 'class_schedule' %}" class="footerLink">Class Schedule →</a>{% if site.online_waiver_available %}<a href="{% url 'waivers:start' %}" class="footerLink">Online Waiver →</a>{% endif %}<a href="{{ site.portal_url }}" class="footerLink">Parent Portal →</a>{% if site.privacy_url %}<a href="{{ site.privacy_url }}" class="footerLink">Privacy policy →</a>{% endif %}{% if site.terms_url %}<a href="{{ site.terms_url }}" class="footerLink">Terms →</a>{% endif %}{% if site.cancellation_url %}<a href="{{ site.cancellation_url }}" class="footerLink">Cancellation &amp; refunds →</a>{% endif %}{% if site.accessibility_url %}<a href="{{ site.accessibility_url }}" class="footerLink">Accessibility →</a>{% endif %}<a href="{% url 'login' %}" class="footerLink">Staff login →</a></div></div><div class="footerBottom"><span>© {% now "Y" %} {{ site.gym_name }}</span>{% if site.footer_credentials %}<span>{{ site.footer_credentials }}</span>{% endif %}</div></footer>
+</body>
+</html>
